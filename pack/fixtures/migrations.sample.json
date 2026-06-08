@@ -1,0 +1,49 @@
+{
+  "status": {
+    "endpoint": "GET /admin/api/migrations",
+    "applied": [
+      { "id": "20260101_add_status_field", "applied_at": 1735689600, "description": "Add status to Customer", "reversible": true },
+      { "id": "20260318_backfill_login_count", "applied_at": 1742256000, "description": "Backfill Customer#login_count from event log", "reversible": false }
+    ],
+    "pending": [
+      { "id": "20260520_rename_fullname_to_name", "description": "Rename Customer#fullname to #name", "reversible": true, "dependencies": ["20260101_add_status_field"] },
+      { "id": "20260603_reencrypt_api_secret_v2", "description": "Re-encrypt Customer#api_secret under key v2", "reversible": false, "dependencies": [] }
+    ]
+  },
+
+  "drift": {
+    "endpoint": "GET /admin/api/migrations/drift",
+    "_note": "Registry#schema_drift compares the live model definition to the stored schema digest. Drives the 'your model changed, here is the diff' card.",
+    "models": [
+      {
+        "model": "Customer",
+        "changed": true,
+        "stored_digest": "sha256:8a1c4e2f9b07d3a6",
+        "current_digest": "sha256:91f4cc70ab12de58",
+        "differences": [
+          { "field": "fullname", "change": "removed" },
+          { "field": "name", "change": "added" },
+          { "field": "updated_at", "change": "added" }
+        ],
+        "suggested_migration": "20260520_rename_fullname_to_name"
+      },
+      {
+        "model": "Session",
+        "changed": false,
+        "stored_digest": "sha256:55de1188aa0c2f31",
+        "current_digest": "sha256:55de1188aa0c2f31",
+        "differences": []
+      }
+    ]
+  },
+
+  "run_dry_run": {
+    "endpoint": "POST /admin/api/migrations/run?dry_run=true",
+    "dry_run": true,
+    "would_run": ["20260520_rename_fullname_to_name"],
+    "plan": [
+      { "id": "20260520_rename_fullname_to_name", "operation": "rename_field", "from": "fullname", "to": "name",
+        "estimated_records": 1282, "reversible": true, "backup": "enabled" }
+    ]
+  }
+}

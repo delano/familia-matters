@@ -1,0 +1,107 @@
+/*
+ * familia-admin design tokens
+ *
+ * Anchored on Otto's design system (otto/lib/otto/design_system.rb) so the admin
+ * matches the framework, with power-user density overrides, a dark theme, and
+ * semantic status aliases for the integrity/migration domain.
+ *
+ * This file exists so Claude Design (and Claude Code) can ingest the design
+ * system directly from the codebase input. Use the --admin-* aliases in
+ * components; they resolve to Otto tokens so the two stay in sync.
+ */
+
+:root {
+  /* ---- Otto brand (accent only; never a background wash) ---- */
+  --otto-primary: #E879F9;        /* Otto pink: primary action, active nav */
+  --otto-primary-dark: #C026D3;
+  --otto-primary-light: #F3E8FF;
+  --otto-secondary: #A855F7;      /* Otto purple */
+  --otto-accent: #FB923C;         /* Otto orange */
+
+  /* ---- Semantic ---- */
+  --otto-success: #059669;  --otto-success-light: #D1FAE5;
+  --otto-warning: #D97706;  --otto-warning-light: #FEF3C7;
+  --otto-error:   #DC2626;  --otto-error-light:   #FEE2E2;
+  --otto-info:    #0284C7;  --otto-info-light:    #E0F2FE;
+
+  /* ---- Neutral ---- */
+  --otto-gray-50:#F9FAFB; --otto-gray-100:#F3F4F6; --otto-gray-200:#E5E7EB;
+  --otto-gray-300:#D1D5DB; --otto-gray-400:#9CA3AF; --otto-gray-500:#6B7280;
+  --otto-gray-600:#4B5563; --otto-gray-700:#374151; --otto-gray-800:#1F2937;
+  --otto-gray-900:#111827;
+
+  /* ---- Type ---- */
+  --otto-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --otto-font-mono: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+
+  /* ---- Spacing / radius / shadow / motion (Otto scales) ---- */
+  --otto-space-xs:.25rem; --otto-space-sm:.5rem; --otto-space-md:1rem;
+  --otto-space-lg:1.5rem; --otto-space-xl:2rem; --otto-space-2xl:3rem;
+  --otto-radius-sm:4px; --otto-radius-md:8px; --otto-radius-lg:12px; --otto-radius-xl:16px;
+  --otto-shadow:0 1px 3px 0 rgba(0,0,0,.1),0 1px 2px 0 rgba(0,0,0,.06);
+  --otto-shadow-md:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -1px rgba(0,0,0,.06);
+  --otto-transition:all .2s ease; --otto-transition-fast:all .1s ease;
+
+  /* ===========================================================
+   * Admin overrides: power-user density (depart from Otto's
+   * consumer-spaced 16px example defaults)
+   * =========================================================== */
+  --admin-font-size-base: 13px;
+  --admin-font-size-sm: 12px;
+  --admin-line-height: 1.45;
+  --admin-row-height: 32px;
+  --admin-gutter: var(--otto-space-sm);
+  --admin-section-gap: var(--otto-space-lg);
+  --admin-border: 1px solid var(--otto-gray-200);
+  --admin-radius: var(--otto-radius-md);
+  --admin-mono: var(--otto-font-mono);   /* keys, ids, scores, digests, commands */
+
+  /* surfaces (light) */
+  --admin-bg: #ffffff;
+  --admin-surface: var(--otto-gray-50);
+  --admin-text: var(--otto-gray-900);
+  --admin-text-muted: var(--otto-gray-500);
+  --admin-border-color: var(--otto-gray-200);
+
+  /* status semantics (use these in components, not raw colors) */
+  --admin-status-healthy: var(--otto-success);
+  --admin-status-caution: var(--otto-warning);   /* stale index, schema drift, approximate count */
+  --admin-status-broken:  var(--otto-error);     /* phantom, missing, failed repair, mismatch */
+  --admin-status-preview: var(--otto-info);       /* dry-run, plan output, "logged" notices */
+  --admin-status-neutral: var(--otto-gray-400);
+
+  /* field-category chips */
+  --admin-field-encrypted: var(--otto-gray-600); /* [CONCEALED] */
+  --admin-field-transient: var(--otto-gray-400); /* [REDACTED] */
+  --admin-field-identifier: var(--otto-secondary);
+
+  /* the brand accent, applied sparingly */
+  --admin-accent: var(--otto-primary);
+  --admin-accent-hover: var(--otto-primary-dark);
+}
+
+/* ===========================================================
+ * Dark theme (developers run admin tools dark; design as a peer)
+ * Toggle with <html data-theme="dark"> or prefers-color-scheme.
+ * =========================================================== */
+:root[data-theme="dark"] {
+  --admin-bg: var(--otto-gray-900);
+  --admin-surface: var(--otto-gray-800);
+  --admin-text: var(--otto-gray-100);
+  --admin-text-muted: var(--otto-gray-400);
+  --admin-border-color: var(--otto-gray-700);
+  --admin-border: 1px solid var(--otto-gray-700);
+  /* semantic hues stay the same; the -light tints are not used as fills in dark,
+     use 12-16% alpha of the base hue for issue-row backgrounds instead */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --admin-bg: var(--otto-gray-900);
+    --admin-surface: var(--otto-gray-800);
+    --admin-text: var(--otto-gray-100);
+    --admin-text-muted: var(--otto-gray-400);
+    --admin-border-color: var(--otto-gray-700);
+    --admin-border: 1px solid var(--otto-gray-700);
+  }
+}

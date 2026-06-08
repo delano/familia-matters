@@ -1,0 +1,10 @@
+{"event":"start","model":"Customer","dry_run":false,"at":1749200200}
+{"phase":"instances","current":0,"total":1284}
+{"phase":"instances","current":428,"total":1284}
+{"phase":"instances","current":856,"total":1284}
+{"phase":"instances","current":1284,"total":1284,"result":{"phantoms_removed":2,"missing_added":1}}
+{"phase":"unique_indexes","current":1,"total":1,"index":"email_lookup","result":{"stale_removed":1,"rebuilt":1}}
+{"phase":"multi_indexes","current":1,"total":1,"index":"status_index","result":{"stale_members_removed":1,"orphaned_keys_removed":1}}
+{"phase":"participations","current":1,"total":1,"collection":"api_keys","result":{"stale_removed":1}}
+{"phase":"cross_references","current":1,"total":1,"result":{"reindexed":1,"retargeted":1}}
+{"event":"done","healthy":true,"at":1749200214,"summary":{"phantoms_removed":2,"missing_added":1,"indexes_rebuilt":2,"stale_members_removed":2,"orphaned_keys_removed":1,"participations_fixed":1,"cross_refs_fixed":2}}
