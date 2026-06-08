@@ -890,7 +890,7 @@ const RevealGate = ({
   }, "Report it"), " and don't reveal."))));
 };
 const RevealResult = () => {
-  const payload = "sk_test_EXAMPLE00000000000000000000000000000000000000000000000000000000000000";
+  const payload = "ots_secret_EXAMPLE_0000000000000000000000000000000000000000000000000000000000";
   const [copied, setCopied] = useRevealState(false);
   return /*#__PURE__*/React.createElement("div", {
     className: "ots-stack lg"
@@ -1368,7 +1368,7 @@ const RevealGate = ({
   }, "Report it"), " and don't reveal."))));
 };
 const RevealResult = () => {
-  const payload = "sk_test_EXAMPLE00000000000000000000000000000000000000000000000000000000000000";
+  const payload = "ots_secret_EXAMPLE_0000000000000000000000000000000000000000000000000000000000";
   const [copied, setCopied] = useRevealState(false);
   return /*#__PURE__*/React.createElement("div", {
     className: "ots-stack lg"
