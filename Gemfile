@@ -20,4 +20,6 @@ gem 'rake'
 
 group :development, :test do
   gem 'tryouts', '~> 3'
+  # In-process Rack harness for the Phase 2 contract test suite (try/*).
+  gem 'rack-test', '~> 2.2'
 end
