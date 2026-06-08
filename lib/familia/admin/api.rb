@@ -108,6 +108,14 @@ module Admin
       fields = permitted_fields(klass, body_fields)
       return bad_request('no fields given') if fields.empty?
 
+      # Server stamps creation timestamps so the client cannot forge them. Only
+      # set fields the model actually declares (ApiKey has no updated_at). Same
+      # build() path so they persist and indexes stay consistent.
+      now = Familia.now.to_i
+      persistent = Array(safe { klass.persistent_fields })
+      fields[:created_at] = now if persistent.include?(:created_at)
+      fields[:updated_at] = now if persistent.include?(:updated_at)
+
       rec =
         begin
           klass.build(**fields)
@@ -133,11 +141,16 @@ module Admin
       fields = permitted_fields(klass, body_fields)
       return bad_request('no fields given') if fields.empty?
 
+      # Server re-stamps updated_at on every update; created_at is left intact.
+      bump_updated = Array(safe { klass.persistent_fields }).include?(:updated_at)
+      now = Familia.now.to_i
+
       begin
         # Assignments inside the block stay in memory until persist_to_storage
         # runs the HMSET inside the transaction; index updates ride along.
         rec.atomic_write do
           fields.each { |name, value| rec.send("#{name}=", value) }
+          rec.updated_at = now if bump_updated
         end
       rescue StandardError => e
         return bad_request("update failed: #{e.message}")
@@ -237,8 +250,22 @@ module Admin
       end
 
       offset, limit = page_params
-      recs = Array(safe { desc.each_record(value: param(:value)).lazy.drop(offset).first(limit) }).compact
-      json({ index: name, value: param(:value), records: recs.map { |r| serialize(r) } })
+      value = param(:value)
+      # UNIQUE index: each_record on a class-level unique index returns the WHOLE
+      # backing hashkey and ignores value:, leaking every record. Resolve the
+      # single record through the generated find_by_<field> finder instead.
+      # MULTI index: the _for(value) bucket already filters, so keep each_record.
+      recs =
+        if desc.unique?
+          # find_by_<field> returns a single record or nil. Wrap with [rec] --
+          # NOT Array(rec): a Horreum is Enumerable, so Array() would splat its
+          # field values into a bogus multi-element list.
+          rec = safe { klass.public_send("find_by_#{desc.field}", value) }
+          [rec].compact.drop(offset).first(limit)
+        else
+          Array(safe { desc.each_record(value: value).lazy.drop(offset).first(limit) }).compact
+        end
+      json({ index: name, value: value, records: recs.map { |r| serialize(r) } })
     end
 
     # ----- integrity -------------------------------------------------------
@@ -374,11 +401,14 @@ module Admin
       force = truthy?(body['force'])
       return bad_request('cmd required') if cmd.empty?
 
+      # READ-ONLY ONLY. Anything not in the read allowlist is hard-denied
+      # regardless of force or permission -- this closes the audit-log
+      # erasure/forgery and data-corruption paths through the raw explorer. force
+      # may only ever widen to more reads, and the allowlist already enumerates
+      # every permitted read, so there is no elevated write path. The deny
+      # returns BEFORE any audit so a blocked command leaves no trace it ran.
       allowed = READ_ONLY_COMMANDS.include?(cmd)
-      hard    = HARD_DENY_COMMANDS.include?(cmd)
-      elevated_ok = !hard && force && actor_permission?('raw_command')
-
-      unless allowed || elevated_ok
+      unless allowed
         return json({ error: 'command_blocked', required_tier: 'permission:raw_command' }, status: 403)
       end
 
@@ -470,9 +500,14 @@ module Admin
           (ph[:result] || {}).each { |k, v| summary[k] = (summary[k] || 0) + v.to_i if v.is_a?(Numeric) }
         end
 
-        healthy = safe { report&.respond_to?(:healthy?) ? report.healthy? : nil }
-        healthy = phases.all? { |p| (p[:result] || {}).empty? } if healthy.nil?
-        emit.call(sse_event(nil, { event: 'done', healthy: !!healthy, at: Time.now.to_i, summary: summary }))
+        # done.healthy MUST track the SAME signal GET /integrity/:model reports,
+        # which is report.healthy?. The old phase-fallback diverged on clean data
+        # (instances/cross_references sections carry non-problem keys, so
+        # phases.all?{empty?} was false even when healthy) and fabricated true
+        # when the report was unreachable (all phases empty). When the report is
+        # absent, health_check itself returns bad_request, so false is correct.
+        healthy = report.respond_to?(:healthy?) ? !!report.healthy? : false
+        emit.call(sse_event(nil, { event: 'done', healthy: healthy, at: Time.now.to_i, summary: summary }))
       end
     end
 

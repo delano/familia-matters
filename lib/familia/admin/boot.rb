@@ -24,11 +24,41 @@ module Familia
       # Configure the Familia connection + encryption and load all model/admin
       # code. Idempotent: safe to call from both config.ru and rake.
       def setup!(app_root)
+        guard_production_keys!
         configure_connection!
         configure_encryption!
         load_models!(app_root)
         load_admin!
         true
+      end
+
+      # Fail-closed in any non-development environment that still carries the
+      # dev-default key material. The dev defaults are public constants in this
+      # source; booting production with them would let anyone mint admin tokens
+      # or decrypt the encrypted fields. Development (no env / 'development')
+      # boots unchanged so the rake/rackup dev flow keeps working.
+      #
+      # auth.rb owns DEV_PASETO_KEY but is only required in load_admin! (after
+      # this guard), so require it here to resolve the constant.
+      def guard_production_keys!
+        env = ENV['RACK_ENV'] || ENV['APP_ENV'] || 'development'
+        return if env == 'development'
+
+        require 'familia/admin/auth'
+
+        paseto = ENV.fetch('FAMILIA_ADMIN_PASETO_KEY', Familia::Admin::Auth::DEV_PASETO_KEY)
+        enc    = ENV.fetch('FAMILIA_ADMIN_ENCRYPTION_KEY', ENCRYPTION_DEV_KEY)
+
+        offenders = []
+        offenders << 'FAMILIA_ADMIN_PASETO_KEY (dev-default PASETO key)' if paseto == Familia::Admin::Auth::DEV_PASETO_KEY
+        offenders << 'FAMILIA_ADMIN_ENCRYPTION_KEY (dev-default encryption key)' if enc == ENCRYPTION_DEV_KEY
+        return if offenders.empty?
+
+        raise <<~MSG.strip
+          Refusing to boot in #{env.inspect}: dev-default key material is in use for #{offenders.join(' and ')}.
+          These defaults are public in the source; using them outside development is unsafe.
+          Set FAMILIA_ADMIN_PASETO_KEY and/or FAMILIA_ADMIN_ENCRYPTION_KEY to real secrets, or run with RACK_ENV=development.
+        MSG
       end
 
       def configure_connection!
