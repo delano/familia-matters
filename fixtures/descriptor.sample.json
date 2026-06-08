@@ -1,0 +1,97 @@
+{
+  "generated_at": 1749200000,
+  "familia_version": "2.10.1",
+  "models": [
+    {
+      "model": "customer",
+      "class": "Customer",
+      "key_pattern": "customer:{custid}:object",
+      "identifier_field": "custid",
+      "fields": [
+        { "name": "custid", "category": "field", "persisted": true, "identifier": true },
+        { "name": "email", "category": "field", "persisted": true,
+          "json_schema": { "type": "string", "format": "email" } },
+        { "name": "name", "category": "field", "persisted": true,
+          "json_schema": { "type": "string", "minLength": 1, "maxLength": 255 } },
+        { "name": "status", "category": "field", "persisted": true,
+          "json_schema": { "type": "string", "enum": ["active", "inactive", "pending"], "default": "pending" } },
+        { "name": "created_at", "category": "field", "persisted": true,
+          "json_schema": { "type": "number" } },
+        { "name": "updated_at", "category": "field", "persisted": true,
+          "json_schema": { "type": "number" } },
+        { "name": "api_secret", "category": "encrypted", "persisted": true, "display": "[CONCEALED]" },
+        { "name": "password", "category": "transient", "persisted": false, "client_visible": false, "display": "[REDACTED]" }
+      ],
+      "datatypes": [
+        { "name": "recent_logins", "type": "list", "scope": "instance" },
+        { "name": "feature_flags", "type": "set", "scope": "instance" },
+        { "name": "domains", "type": "sorted_set", "scope": "instance" },
+        { "name": "metadata", "type": "hashkey", "scope": "instance" },
+        { "name": "login_count", "type": "counter", "scope": "instance" }
+      ],
+      "indexes": [
+        { "index_name": "email_lookup", "field": "email", "cardinality": "unique",
+          "class_level": true, "queryable": true, "coordinate": "Customer.email_lookup" },
+        { "index_name": "status_index", "field": "status", "cardinality": "multi",
+          "class_level": true, "queryable": true, "coordinate": "Customer.status_index" }
+      ],
+      "participations": [],
+      "safe_dump_fields": ["custid", "email", "name", "status", "created_at"],
+      "expiration": { "policy": "ttl", "default_seconds": 7776000 },
+      "json_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "Customer",
+        "type": "object",
+        "properties": {
+          "custid": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+          "status": { "type": "string", "enum": ["active", "inactive", "pending"], "default": "pending" },
+          "created_at": { "type": "number" }
+        },
+        "required": ["custid", "email"]
+      },
+      "actions": ["list", "read", "create", "update", "destroy", "reveal", "rebuild_index"]
+    },
+    {
+      "model": "session",
+      "class": "Session",
+      "key_pattern": "session:{sessid}:object",
+      "identifier_field": "sessid",
+      "logical_database": 1,
+      "fields": [
+        { "name": "sessid", "category": "field", "persisted": true, "identifier": true },
+        { "name": "custid", "category": "field", "persisted": true },
+        { "name": "ip_address", "category": "field", "persisted": true },
+        { "name": "user_agent", "category": "field", "persisted": true },
+        { "name": "created_at", "category": "field", "persisted": true }
+      ],
+      "datatypes": [],
+      "indexes": [],
+      "participations": [],
+      "expiration": { "policy": "ttl", "default_seconds": 86400 },
+      "actions": ["list", "read", "create", "update", "destroy"]
+    },
+    {
+      "model": "api_key",
+      "class": "ApiKey",
+      "key_pattern": "api_key:{keyid}:object",
+      "identifier_field": "keyid",
+      "fields": [
+        { "name": "keyid", "category": "field", "persisted": true, "identifier": true },
+        { "name": "custid", "category": "field", "persisted": true },
+        { "name": "label", "category": "field", "persisted": true },
+        { "name": "created_at", "category": "field", "persisted": true },
+        { "name": "last_used_at", "category": "field", "persisted": true },
+        { "name": "secret", "category": "encrypted", "persisted": true, "display": "[CONCEALED]" }
+      ],
+      "datatypes": [],
+      "indexes": [],
+      "participations": [
+        { "collection": "api_keys", "type": "sorted_set", "target": "Customer", "scored": true }
+      ],
+      "safe_dump_fields": ["keyid", "label", "created_at"],
+      "actions": ["list", "read", "create", "update", "destroy", "reveal"]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# bin/dev-server — boot the familia-admin Otto backend for local development.
+#
+# Safe defaults; override any of these in your environment:
+#   FAMILIA_URI, FAMILIA_ENCRYPTION_KEY, ADMIN_TOKENS, ADMIN_RAW_COMMANDS,
+#   ADMIN_COMMAND_STREAM, PORT
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+export LANG="${LANG:-C.UTF-8}"
+export LC_ALL="${LC_ALL:-C.UTF-8}"
+export FAMILIA_URI="${FAMILIA_URI:-redis://127.0.0.1:6379/0}"
+if [ -z "${FAMILIA_ENCRYPTION_KEY:-}" ]; then
+  FAMILIA_ENCRYPTION_KEY="$(ruby -rsecurerandom -rbase64 -e 'print Base64.strict_encode64(SecureRandom.bytes(32))')"
+  export FAMILIA_ENCRYPTION_KEY
+fi
+export ADMIN_TOKENS="${ADMIN_TOKENS:-dev-admin=admin:reveal_secrets,repair,run_migrations,raw_command}"
+PORT="${PORT:-9292}"
+
+exec rackup -s webrick config.ru -p "$PORT"

@@ -1,0 +1,83 @@
+# familia-admin :: Otto routes
+#
+# Plain-text routing for a model-aware Familia admin API. Otto turns each line
+# into an HTTP endpoint and, for MCP/TOOL verbs, a JSON-RPC 2.0 method at /_mcp.
+#
+# Per-route parameters used below:
+#   response=json        emit JSON (and JSON errors regardless of Accept header)
+#   csrf=exempt          token/MCP-authenticated mutations opt out of CSRF
+#   auth=role:admin                requires the 'admin' role
+#   auth=permission:NAME           requires a specific permission (elevated tiers)
+#
+# Adjust the auth tiers to your application's strategies. The permission tiers
+# referenced here (reveal_secrets, repair, run_migrations, raw_command) are the
+# elevated actions from the security checklist; everything else is role:admin.
+
+# ============================================================
+# DISCOVERY  (the descriptor IS the frontend's source of truth)
+# ============================================================
+GET    /admin/api/_meta                                  Admin::API#meta            response=json auth=role:admin
+GET    /admin/api/_openapi                               Admin::API#openapi         response=json auth=role:admin
+GET    /admin/api/models                                 Admin::API#list_models     response=json auth=role:admin
+GET    /admin/api/models/:model                          Admin::API#describe_model  response=json auth=role:admin
+
+# ============================================================
+# RECORDS  (typed CRUD over Horreum models)
+# ============================================================
+GET    /admin/api/models/:model/records                  Admin::API#list_records    response=json auth=role:admin
+POST   /admin/api/models/:model/records                  Admin::API#create_record   response=json auth=role:admin csrf=exempt
+GET    /admin/api/models/:model/records/:id              Admin::API#read_record     response=json auth=role:admin
+PUT    /admin/api/models/:model/records/:id              Admin::API#update_record   response=json auth=role:admin csrf=exempt
+DELETE /admin/api/models/:model/records/:id              Admin::API#destroy_record  response=json auth=role:admin csrf=exempt
+
+# Reveal one encrypted field. Elevated + audited. Returns plaintext once.
+POST   /admin/api/models/:model/records/:id/reveal/:field  Admin::API#reveal_field  response=json auth=permission:reveal_secrets csrf=exempt
+
+# ============================================================
+# COLLECTIONS  (DataTypes attached to a record: list/set/zset/hashkey/...)
+# ============================================================
+GET    /admin/api/models/:model/records/:id/:collection  Admin::API#read_collection   response=json auth=role:admin
+POST   /admin/api/models/:model/records/:id/:collection  Admin::API#mutate_collection response=json auth=role:admin csrf=exempt
+
+# ============================================================
+# QUERY  (indexed lookups only; ad-hoc filtering is explicitly expensive)
+# ============================================================
+GET    /admin/api/models/:model/index/:index             Admin::API#query_index     response=json auth=role:admin
+
+# ============================================================
+# INTEGRITY  (the headline feature: fsck for the object graph)
+# ============================================================
+GET    /admin/api/integrity/_stale_indexes               Admin::API#stale_indexes   response=json auth=role:admin
+GET    /admin/api/integrity/:model                        Admin::API#health_check    response=json auth=role:admin
+POST   /admin/api/integrity/:model/repair                 Admin::API#repair          response=json auth=permission:repair csrf=exempt
+
+# ============================================================
+# MIGRATIONS  (status, drift, run, rollback)
+# ============================================================
+GET    /admin/api/migrations                              Admin::API#migration_status response=json auth=role:admin
+GET    /admin/api/migrations/drift                        Admin::API#schema_drift     response=json auth=role:admin
+POST   /admin/api/migrations/run                          Admin::API#run_migrations   response=json auth=permission:run_migrations csrf=exempt
+POST   /admin/api/migrations/rollback                     Admin::API#rollback         response=json auth=permission:run_migrations csrf=exempt
+
+# ============================================================
+# RAW EXPLORER  (the schemaless layer; guarded)
+# ============================================================
+GET    /admin/api/raw/keys                                Admin::API#scan_keys       response=json auth=role:admin
+GET    /admin/api/raw/key                                 Admin::API#inspect_key     response=json auth=role:admin
+GET    /admin/api/raw/info                                Admin::API#server_info     response=json auth=role:admin
+POST   /admin/api/raw/command                             Admin::API#run_command     response=json auth=permission:raw_command csrf=exempt
+
+# ============================================================
+# LIVE STREAMS  (Rack 3 streaming bodies / server-sent events)
+# ============================================================
+GET    /admin/api/stream/commands                         Admin::API#stream_commands auth=role:admin
+GET    /admin/api/stream/repair/:model                    Admin::API#stream_repair   auth=permission:repair
+
+# ============================================================
+# MCP  (same surface, agent-drivable, at POST /_mcp)
+#   MCP  = read-only resource     TOOL = executable action
+# ============================================================
+MCP    /models                                            Admin::MCP.list_models
+MCP    /integrity                                          Admin::MCP.health
+TOOL   /repair                                             Admin::MCP.repair
+TOOL   /run_migration                                      Admin::MCP.run_migration

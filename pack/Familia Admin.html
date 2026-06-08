@@ -28,15 +28,24 @@
 <iframe id="frame-explorer" class="screen" src="Raw Explorer.html" title="Raw explorer" hidden></iframe>
 
 <!--
-  Single shared backend lives HERE, in the shell, so both screens share one
-  StateModel for the whole prototype session. Each screen's backend-client.js
-  forwards its requests up via postMessage; we answer from the one instance.
+  Single shared backend transport lives HERE, in the shell, so every screen
+  speaks to one backend. Each screen's backend-client.js forwards its request
+  envelopes up via postMessage; we answer by calling the REAL Otto endpoints
+  (/admin/api) over HTTP — the in-browser Claude simulator has been replaced by
+  the production backend (prototype/backend.js). Point it at your mount and set
+  a bearer token here (or in localStorage: familia_admin.baseUrl / .token).
 -->
-<script src="prototype/seed.js"></script>
+<script>
+  window.FAMILIA_ADMIN_CONFIG = {
+    baseUrl: (window.localStorage && localStorage.getItem('familia_admin.baseUrl')) || '/admin/api',
+    token: (window.localStorage && localStorage.getItem('familia_admin.token')) || null,
+    credentials: 'same-origin'
+  };
+</script>
 <script src="prototype/backend.js"></script>
 <script>
   (function () {
-    var backend = (window.createFamiliaBackend && window.claude) ? window.createFamiliaBackend() : null;
+    var backend = window.createFamiliaBackend ? window.createFamiliaBackend() : null;
     window.addEventListener('message', function (e) {
       var d = e.data || {};
       var src = e.source;

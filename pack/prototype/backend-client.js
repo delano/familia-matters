@@ -72,5 +72,13 @@
     return ensureLocal().request(envelope);
   }
 
-  window.familiaBackend = { request: request };
+  // Live SSE subscriptions (stream.commands / stream.repair) go DIRECT to the
+  // backend via a local transport rather than over the postMessage bridge —
+  // streaming a long-lived connection through postMessage adds no value and the
+  // screens are same-origin with the Otto mount. Returns an unsubscribe fn.
+  function subscribe(envelope, onEvent, onError) {
+    return ensureLocal().subscribe(envelope, onEvent, onError);
+  }
+
+  window.familiaBackend = { request: request, subscribe: subscribe };
 })();

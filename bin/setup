@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# bin/setup — idempotent environment bootstrap for familia-admin.
+#
+# Installs the runtime + test gems (only if missing) and starts a local
+# Redis/Valkey (only if not already running), so `try try/*_try.rb` and
+# `bin/dev-server` work out of the box. Safe to run repeatedly; fast on warm
+# starts. Used by the Claude Code SessionStart hook (.claude/settings.json).
+set -uo pipefail
+cd "$(dirname "$0")/.."
+
+echo "[setup] checking Ruby gems..."
+if ! ruby -e 'require "familia"; require "otto"; require "rack"; require "tryouts"' >/dev/null 2>&1; then
+  echo "[setup] installing gems (familia, otto, rack, rackup, tryouts, webrick)..."
+  gem install --no-document familia otto rack rackup tryouts webrick >/dev/null 2>&1 \
+    || echo "[setup] WARN: gem install failed (offline?); tests may not run"
+else
+  echo "[setup] gems already present"
+fi
+
+echo "[setup] checking Redis/Valkey..."
+if redis-cli ping >/dev/null 2>&1; then
+  echo "[setup] redis already running"
+elif command -v redis-server >/dev/null 2>&1; then
+  echo "[setup] starting redis-server (no persistence)..."
+  redis-server --daemonize yes --save '' --appendonly no >/dev/null 2>&1
+  sleep 1
+  redis-cli ping >/dev/null 2>&1 && echo "[setup] redis up" || echo "[setup] WARN: redis did not start"
+else
+  echo "[setup] WARN: no redis-server/valkey-server on PATH; install one to run tests"
+fi
+
+echo "[setup] done"

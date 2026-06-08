@@ -1,82 +1,172 @@
-/* backend.js — the single shared backend instance factory.
+/* backend.js — the REAL backend transport (replaces the in-browser simulator).
  *
- * Plain JS. Defines window.createFamiliaBackend() which returns an object with
- * an async request(envelope) method. State is kept implicitly in the Claude
- * conversation transcript: the system prompt + SEED are sent once (prefixed to
- * the first request), then every action is a user turn and every response an
- * assistant turn. Because the whole transcript replays on each call, the model
- * sees the mutations it made earlier — that is the "one shared StateModel,
- * seeded once, mutated by actions" guarantee.
+ * The prototype used to answer every request with a Claude-API call that played
+ * the familia-admin server. This is the production seam described in the design
+ * handoff: the same uniform envelope the screens already send is now translated
+ * into HTTP calls against the real Otto endpoints (lib/familia/admin/api.rb),
+ * which emit the identical JSON shapes (fixtures/*.json). It is a transport swap,
+ * not a redesign — window.familiaBackend.request(envelope) keeps its signature,
+ * so no screen changes.
  *
- * Requires: window.FAMILIA_SYSTEM_PROMPT (seed.js) and window.claude.complete.
+ * Config (set window.FAMILIA_ADMIN_CONFIG before this script, or rely on the
+ * same-origin defaults):
+ *   { baseUrl: '/admin/api',         // where Otto is mounted
+ *     token: 'dev-admin',            // bearer token (Authorization header)
+ *     credentials: 'same-origin' }   // fetch credentials mode
  */
 (function () {
-  function extractJSON(text) {
-    if (text == null) return null;
-    var s = String(text).trim();
-    // Strip ```json … ``` or ``` … ``` fences if present.
-    var fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
-    if (fence) s = fence[1].trim();
-    // Fast path.
-    try { return JSON.parse(s); } catch (e) {}
-    // Find the first balanced { } or [ ] block.
-    var start = -1, open = '', close = '';
-    for (var i = 0; i < s.length; i++) {
-      if (s[i] === '{' || s[i] === '[') { start = i; open = s[i]; close = s[i] === '{' ? '}' : ']'; break; }
-    }
-    if (start === -1) return null;
-    var depth = 0, inStr = false, esc = false;
-    for (var j = start; j < s.length; j++) {
-      var c = s[j];
-      if (inStr) {
-        if (esc) esc = false;
-        else if (c === '\\') esc = true;
-        else if (c === '"') inStr = false;
-      } else if (c === '"') inStr = true;
-      else if (c === open) depth++;
-      else if (c === close) { depth--; if (depth === 0) { var slice = s.slice(start, j + 1); try { return JSON.parse(slice); } catch (e2) { return null; } } }
-    }
-    return null;
+  function config() {
+    var c = window.FAMILIA_ADMIN_CONFIG || {};
+    return {
+      baseUrl: (c.baseUrl || '/admin/api').replace(/\/$/, ''),
+      token: c.token || null,
+      credentials: c.credentials || 'same-origin',
+    };
   }
 
-  window.createFamiliaBackend = function createFamiliaBackend() {
-    var messages = [];
-    var seeded = false;
+  function qs(params) {
+    if (!params) return '';
+    var parts = Object.keys(params)
+      .filter(function (k) { return params[k] !== undefined && params[k] !== null && params[k] !== ''; })
+      .map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); });
+    return parts.length ? '?' + parts.join('&') : '';
+  }
 
-    async function request(envelope) {
-      if (!window.claude || typeof window.claude.complete !== 'function') {
-        throw new Error('claude_unavailable');
-      }
-      var payload = JSON.stringify(envelope);
-      var content = payload;
-      if (!seeded) {
-        content = window.FAMILIA_SYSTEM_PROMPT +
-          '\n\nRespond to THIS request and every following request with ONLY the ' +
-          'JSON response (no prose, no markdown fences). First request:\n' + payload;
-        seeded = true;
-      }
-      messages.push({ role: 'user', content: content });
-      var raw;
-      try {
-        raw = await window.claude.complete({ messages: messages });
-      } catch (err) {
-        // Roll back the unanswered user turn so the transcript stays consistent.
-        messages.pop();
-        seeded = messages.length > 0;
-        throw err;
-      }
-      messages.push({ role: 'assistant', content: String(raw) });
-      var parsed = extractJSON(raw);
-      if (parsed == null) {
-        var e = new Error('bad_json');
-        e.raw = raw;
-        throw e;
-      }
-      return parsed;
+  function enc(v) { return encodeURIComponent(String(v)); }
+
+  // Translate the uniform envelope {action, model, id, collection, index, field,
+  // params, body} into an HTTP {method, path, body, query} per the routes file.
+  // The action names mirror the prototype simulator's contract so the screens
+  // need no changes.
+  function route(env) {
+    var m = env.model, id = env.id, p = env.params || {};
+    switch (env.action) {
+      case 'meta': return { method: 'GET', path: '/_meta' };
+      case 'openapi': return { method: 'GET', path: '/_openapi' };
+      case 'models': return { method: 'GET', path: '/models' };
+      case 'model.describe':
+      case 'describe_model': return { method: 'GET', path: '/models/' + enc(m) };
+
+      case 'records.list': return { method: 'GET', path: '/models/' + enc(m) + '/records', query: p };
+      case 'records.read': return { method: 'GET', path: '/models/' + enc(m) + '/records/' + enc(id) };
+      case 'records.create': return { method: 'POST', path: '/models/' + enc(m) + '/records', body: { fields: env.fields || p.fields || p } };
+      case 'records.update': return { method: 'PUT', path: '/models/' + enc(m) + '/records/' + enc(id), body: { fields: env.fields || p.fields || p } };
+      case 'records.destroy': return { method: 'DELETE', path: '/models/' + enc(m) + '/records/' + enc(id) };
+      case 'records.reveal': return { method: 'POST', path: '/models/' + enc(m) + '/records/' + enc(id) + '/reveal/' + enc(env.field) };
+
+      case 'collection.read': return { method: 'GET', path: '/models/' + enc(m) + '/records/' + enc(id) + '/' + enc(env.collection), query: p };
+      case 'collection.mutate': return { method: 'POST', path: '/models/' + enc(m) + '/records/' + enc(id) + '/' + enc(env.collection), body: { op: env.op, args: env.args } };
+
+      case 'query.index': return { method: 'GET', path: '/models/' + enc(m) + '/index/' + enc(env.index), query: p };
+
+      case 'integrity.stale': return { method: 'GET', path: '/integrity/_stale_indexes' };
+      case 'integrity.check': return { method: 'GET', path: '/integrity/' + enc(m) };
+      case 'integrity.repair': return { method: 'POST', path: '/integrity/' + enc(m) + '/repair', query: { dry_run: p.dry_run, scope: p.scope } };
+
+      case 'migrations.status': return { method: 'GET', path: '/migrations' };
+      case 'migrations.drift': return { method: 'GET', path: '/migrations/drift' };
+      case 'migrations.run': return { method: 'POST', path: '/migrations/run', query: { dry_run: p.dry_run, limit: p.limit } };
+      case 'migrations.rollback': return { method: 'POST', path: '/migrations/rollback', body: { id: env.id || p.id } };
+
+      case 'raw.scan_keys': return { method: 'GET', path: '/raw/keys', query: p };
+      case 'raw.inspect_key': return { method: 'GET', path: '/raw/key', query: { key: env.key || p.key } };
+      case 'raw.info': return { method: 'GET', path: '/raw/info' };
+      case 'raw.command': return { method: 'POST', path: '/raw/command', body: { cmd: env.cmd, args: env.args } };
+      default: return null;
+    }
+  }
+
+  function headers(cfg, hasBody) {
+    var h = { Accept: 'application/json' };
+    if (hasBody) h['Content-Type'] = 'application/json';
+    if (cfg.token) h.Authorization = 'Bearer ' + cfg.token;
+    return h;
+  }
+
+  function request(envelope) {
+    var cfg = config();
+    var r = route(envelope);
+    if (!r) return Promise.reject(new Error('unknown_action: ' + envelope.action));
+
+    var url = cfg.baseUrl + r.path + qs(r.query);
+    var init = {
+      method: r.method,
+      headers: headers(cfg, !!r.body),
+      credentials: cfg.credentials,
+    };
+    if (r.body) init.body = JSON.stringify(r.body);
+
+    return fetch(url, init).then(function (res) {
+      return res.text().then(function (text) {
+        var data;
+        try { data = text ? JSON.parse(text) : {}; } catch (e) { data = { error: 'bad_json', raw: text }; }
+        if (!res.ok) {
+          var err = new Error((data && (data.error || data.message)) || ('http_' + res.status));
+          err.status = res.status;
+          err.body = data;
+          throw err;
+        }
+        return data;
+      });
+    });
+  }
+
+  // Server-Sent-Events subscription for the live endpoints (GET routes). Uses
+  // fetch + a streaming reader rather than EventSource so the Authorization
+  // header can be sent. Returns an unsubscribe function.
+  //
+  //   subscribe({action:'stream.repair', model:'customer', params:{dry_run:false}},
+  //             function (event) { ... }, function (err) { ... })
+  function subscribe(envelope, onEvent, onError) {
+    var cfg = config();
+    var path, query = {};
+    if (envelope.action === 'stream.commands') {
+      path = '/stream/commands';
+    } else if (envelope.action === 'stream.repair') {
+      path = '/stream/repair/' + enc(envelope.model);
+      query = envelope.params || {};
+    } else {
+      onError && onError(new Error('unknown_stream: ' + envelope.action));
+      return function () {};
     }
 
-    return { request: request, _messages: messages, _extractJSON: extractJSON };
+    var controller = new AbortController();
+    fetch(cfg.baseUrl + path + qs(query), {
+      method: 'GET',
+      headers: headers(cfg, false),
+      credentials: cfg.credentials,
+      signal: controller.signal,
+    }).then(function (res) {
+      if (!res.ok || !res.body) { onError && onError(new Error('stream_http_' + res.status)); return; }
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = '';
+      function pump() {
+        return reader.read().then(function (chunk) {
+          if (chunk.done) return;
+          buffer += decoder.decode(chunk.value, { stream: true });
+          var blocks = buffer.split('\n\n');
+          buffer = blocks.pop();
+          blocks.forEach(function (block) {
+            var line = block.split('\n').filter(function (l) { return l.indexOf('data:') === 0; })[0];
+            if (!line) return; // heartbeat/comment
+            try { onEvent(JSON.parse(line.slice(5).trim())); } catch (e) { /* skip */ }
+          });
+          return pump();
+        });
+      }
+      return pump();
+    }).catch(function (err) { if (err.name !== 'AbortError') onError && onError(err); });
+
+    return function unsubscribe() { controller.abort(); };
+  }
+
+  // Factory keeps the historical name/signature so backend-client.js and the
+  // shell wire up unchanged.
+  window.createFamiliaBackend = function createFamiliaBackend() {
+    return { request: request, subscribe: subscribe };
   };
 
-  window._familiaExtractJSON = function (t) { return window.createFamiliaBackend()._extractJSON(t); };
+  // Also expose directly for screens that don't go through the shell bridge.
+  window.familiaBackendTransport = { request: request, subscribe: subscribe };
 })();
