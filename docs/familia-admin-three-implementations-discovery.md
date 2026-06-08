@@ -3,6 +3,17 @@
 *Discovery pass, 2026-06-08. A side-by-side reading of three independent attempts
 at the same plan, none of which had seen the others when written.*
 
+> **Refresh, 2026-06-08 (later same day).** The in-progress branch has advanced
+> well past the "Phase 0 skeleton" this document first described. It is now the
+> most complete of the three: the frontend seam is closed, every mutating action
+> is implemented, the audit sink is wired, and a full Rack::Test contract suite
+> (89 testcases, 0 failing) drives the real controller through Otto + PASETO +
+> live Valkey. The original snapshot below is preserved as written; the
+> [**Update**](#update--in-progress-refreshed) section after the Headline
+> supersedes every in-progress claim, and a [**Recommendation**](#recommendation)
+> closes the document. The two rival columns (clever-thompson, blissful-pascal)
+> are frozen worktrees and stand exactly as first read.
+
 ## What was compared
 
 The plan ([`we-want-to-bring-stateful-engelbart.md`](../../../../.claude/plans/we-want-to-bring-stateful-engelbart.md))
@@ -53,12 +64,20 @@ REST/SSE `fetch` adapter is the whole point of the exercise.
   (matching the plan's client-side buffering decision), and drops the
   client-asserted `tier` from server-bound requests. It also restructured the
   prototype into a proper Vite app under `web/src/`.
-- **in-progress** also leaves the seam untouched, which is consistent with its
-  stage (foundation only).
+- **in-progress** left the seam untouched *at the time of the original reading*.
+  **Update:** it has since closed it. `backend-client.js` now does a real
+  REST/SSE `fetch`, sends `Authorization: Bearer`, parses `text/event-stream`
+  bodies into an array, and drops the client-only `tier` — the same seam
+  blissful-pascal closed, reached independently.
 
 ### Surprise 2: only the unfinished one kept the decided auth scheme
 
 The plan marks PASETO bearer tokens as DECIDED. The result inverts expectation:
+
+> **Update:** the framing "only the *unfinished* one kept PASETO" no longer
+> holds — and inverts a second time. The in-progress branch kept PASETO *and*
+> has since become the most complete of the three. So the faithful-to-the-plan
+> codebase is now also the most finished one, not the least.
 
 - **in-progress** is the only codebase that actually implements PASETO (via the
   `paseto` gem). It also documents honestly that the gem ships only v2.local, not
@@ -73,7 +92,88 @@ The plan marks PASETO bearer tokens as DECIDED. The result inverts expectation:
 Both "completed" branches reached for a simpler opaque-token scheme. Neither flags
 the deviation from a plan item that was explicitly settled.
 
+## Update — in-progress, refreshed
+
+*Refreshed against the in-progress tree at `eaa8ba1` plus its uncommitted
+working-tree changes to `api.rb` and `boot.rb`. Everything in this section
+supersedes the in-progress column elsewhere in the document.*
+
+The in-progress branch independently converged on the synthesis the original
+[A synthesis view](#a-synthesis-view) recommended grafting together: it now has
+blissful-pascal's frontend wiring and full-stack test discipline **and** its own
+PASETO auth — with one verified exception called out below. What changed since
+the first reading:
+
+| Axis | Snapshot (first reading) | Now (`eaa8ba1` + working tree) |
+|---|---|---|
+| Stage | Phase 0 skeleton | most complete of the three |
+| `api.rb` size | 327 | 767 |
+| Ruby LOC (lib) | ~950 | ~1500 |
+| 10 mutating/raw/stream actions | all `not_implemented` | all implemented (only `openapi` is still a stub) |
+| Frontend seam | postMessage bridge (untouched) | real REST/SSE `fetch` adapter, `Authorization: Bearer`, SSE→array, `tier` dropped |
+| Audit | sink built, `audit!` only `warn`s | **wired and populated** — `audit!` calls `AuditLog.record`; 11 callsites cover create/update/destroy/reveal/mutate_collection/repair/run_migrations/rollback/run_command/stream_commands/stream_repair |
+| Tests | none | full `Rack::Test` through Otto + real PASETO + live Valkey; **89 testcases pass, 0 fail** across 10 files |
+| Auth | PASETO (v2.local) | unchanged, plus a fail-closed `guard_production_keys!` that refuses to boot a non-development env on the public dev-default PASETO/encryption keys |
+
+Hardening visible in the working-tree diff (not yet committed):
+
+- **Unique-index query leak fixed.** `query_index` previously called
+  `each_record` against a class-level unique index, which returns the whole
+  backing hashkey and ignores `value:` — leaking every record. It now resolves a
+  unique index through the generated `find_by_<field>` finder and keeps
+  `each_record` only for multi indexes.
+- **Raw explorer hardened to read-only-only.** `run_command` no longer has any
+  elevated write path: anything outside the read allowlist is denied regardless
+  of `force` or permission, and the denial returns *before* any audit so a
+  blocked command leaves no trace it ran. (This closes the audit-erasure and
+  data-corruption paths through the raw explorer.)
+- **SSE `done.healthy` reconciled** to track the same `report.healthy?` signal
+  `GET /integrity/:model` reports, instead of a phase-emptiness fallback that
+  diverged on clean data.
+- **Server-stamped timestamps.** `create_record`/`update_record` set
+  `created_at`/`updated_at` server-side (only for fields the model declares), so
+  the client cannot forge them.
+
+### The one verified correctness gap: `update_record` leaves stale index entries
+
+This is the single rigor point the original document called out by name
+([`update_record`: correctness on indexed fields](#update_record-correctness-on-indexed-fields)),
+so it was checked empirically against live Valkey rather than read from the code
+comments. **In-progress has the bug clever-thompson avoided.**
+
+`update_record` applies field changes inside `rec.atomic_write`, and the
+line-136 comment assumes index bookkeeping "rides along" with that write. It does
+not, for a *changed* indexed field. Observed after changing a seeded customer's
+`email` and `status` inside `atomic_write`:
+
+- **unique_index (`email` → `email_lookup`):** `find_by_email(OLD_value)` still
+  returns the record. The old index entry is never removed.
+- **multi_index (`status` → `status_index`):** the record appears in **both** the
+  old bucket and the new bucket.
+
+This is exactly blissful-pascal's behavior, not clever-thompson's. clever-thompson
+snapshots the indexed field values before the write and calls `update_all_indexes`
+afterward so stale entries are purged; in-progress does neither. On any model with
+indexed mutable fields (Customer has both), an admin edit through this path leaves
+a queryable stale index — and because the new `query_index` resolves unique
+indexes through `find_by_<field>`, a query on the stale old value will return the
+record under a key it no longer has. Inline fix, not an architectural one: snapshot
+indexed values before `atomic_write`, reconcile after.
+
+### Smaller nits (cleanup, not blockers)
+
+- The working-tree change made `run_command` read-only-only but left the
+  surrounding comments (`api.rb:26-28`, `api.rb:393-396`) describing the old
+  "`force` + `permission:raw_command` can elevate" model, and `HARD_DENY_COMMANDS`
+  (`api.rb:38-41`) is now dead — no code references it.
+- `audit_log.rb:20-21` still states "Wiring it into `Admin::API#audit!` is owned
+  by a later phase; api.rb is left untouched here." That wiring has happened; the
+  comment is stale.
+
 ## Per-axis comparison
+
+*The in-progress column below reflects the **original snapshot** and is superseded
+by the [Update](#update--in-progress-refreshed) section above.*
 
 | Axis | in-progress | clever-thompson | blissful-pascal |
 |---|---|---|---|
@@ -167,9 +267,59 @@ The strongest combined result would graft clever-thompson's `api.rb` rigor and
 blissful-pascal's frontend wiring and full-stack tests onto the in-progress
 branch's PASETO auth.
 
+> **Update:** that graft has largely already happened *on the in-progress branch
+> itself*, independently. It now carries blissful-pascal's frontend wiring and a
+> full Rack::Test suite alongside its own PASETO auth. The one piece of
+> clever-thompson rigor it did **not** absorb is `update_record`'s index
+> reconciliation — see the [Update](#update--in-progress-refreshed) section. The
+> "best of all worlds" is now a short list of inline fixes on one branch, not a
+> three-way merge.
+
+## Recommendation
+
+**Do not pause for a fresh-agent re-evaluation of the approach. Continue on the
+in-progress branch.**
+
+The premise of a handoff — "step back and assemble the best of all worlds" — has
+already been satisfied by the in-progress branch's own progress. It is the only
+codebase that simultaneously closes the frontend seam, implements the full action
+surface, wires and populates the audit trail, keeps the DECIDED PASETO scheme, and
+proves all of it with a green contract suite (89 testcases through the real
+controller, auth, and Valkey). A fresh agent handed the synthesis goal would spend
+its first budget re-deriving this state from three codebases, and the most likely
+outcome is a regression of a working, tested branch toward a paper-cleaner merge.
+The cost of re-evaluation is real; the upside is now small.
+
+What remains is a short, well-scoped punch list that does **not** need a new
+approach — only execution on the current one:
+
+1. **Fix `update_record` index reconciliation** (the one verified correctness
+   bug). Adopt clever-thompson's pattern: snapshot indexed field values before
+   `atomic_write`, reconcile indexes after. This is the highest-value item and the
+   only one that is a true defect.
+2. **Commit the working-tree hardening.** The unique-index leak fix, raw
+   read-only-only path, SSE health reconciliation, and server-stamped timestamps
+   are currently uncommitted in `api.rb`/`boot.rb`.
+3. **Clear the stale comments and dead constant** noted above (`run_command`
+   comments, `HARD_DENY_COMMANDS`, `audit_log.rb` header).
+4. **Decide `openapi`** — implement from `Descriptor.app` or remove the route. It
+   is the only `not_implemented` left.
+5. **Optional, lower priority:** consider blissful-pascal's `OriginGuard` as
+   defense-in-depth. Not a correctness gap — all three branches correctly reason
+   that a header bearer credential makes CSRF middleware unnecessary — so this is a
+   judgment call, not a blocker.
+
+One caveat worth stating plainly: this recommendation rests on the contract suite
+genuinely exercising the surface it claims to. The suite drives the real Otto app
+through Rack::Test with live auth, which is the right shape — but it did not catch
+the `update_record` stale-index bug (no update-then-query-old-value assertion
+exists). Item 1 should land **with** a regression test that updates an indexed
+field and asserts the old value no longer resolves. The test gap is narrow, not
+systemic.
+
 ## Source references
 
 - Plan: `~/.claude/plans/we-want-to-bring-stateful-engelbart.md`
-- in-progress: `lib/familia/admin/{api,auth,audit_log,boot,descriptor}.rb`, `config.ru`
+- in-progress: `lib/familia/admin/{api,auth,audit_log,boot,descriptor}.rb`, `lib/models.rb`, `config.ru`, `try/` (10 contract files + `test_helper.rb`), `resources/01-designs/prototype/backend-client.js`
 - clever-thompson: `lib/familia/admin/{api,token_strategy,audit_log,streaming,raw_command,openapi}.rb`, `config.ru`, `try/`, `pack/prototype/backend-client.js`
 - blissful-pascal: `lib/familia/admin/{api,auth,audit_log,app,boot,security,seed,migrations,raw,streaming}.rb`, `config.ru`, `web/src/backend/familia-backend.js`, `try/`
