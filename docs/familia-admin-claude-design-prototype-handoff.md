@@ -1,4 +1,4 @@
-# Claude Design Handoff: familia-admin
+# Claude Design Prototype Handoff: familia-admin
 
 How to take everything in this folder into Claude Design and get a functional,
 not merely clickable, prototype. The key lever: Claude Design's interactive
