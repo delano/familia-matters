@@ -1,0 +1,11 @@
+/* Familia Admin design system — global stylesheet.
+ *
+ * This file is intentionally just @import statements. The token closure
+ * (fonts, colors, type, spacing, reset) is what consumers ship. Add new
+ * token files here; do not inline rules. */
+
+@import "./tokens/fonts.css";
+@import "./tokens/colors.css";
+@import "./tokens/typography.css";
+@import "./tokens/spacing.css";
+@import "./tokens/reset.css";

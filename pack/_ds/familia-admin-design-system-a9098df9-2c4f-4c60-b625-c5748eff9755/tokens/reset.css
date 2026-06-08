@@ -1,0 +1,32 @@
+/* Minimal reset for admin surfaces. Not a full normalize — just enough to
+ * make our specimens and components behave consistently. */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font-family: var(--admin-font-family);
+  font-size: var(--admin-font-size-base);
+  line-height: var(--admin-line-height);
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+a { color: inherit; }
+
+/* Native focus outlines are replaced with our own focus ring on
+ * interactive controls; visible focus is preserved via :focus-visible. */
+:focus { outline: none; }
+:focus-visible {
+  outline: none;
+  box-shadow: var(--admin-focus-ring);
+  border-radius: var(--admin-radius-sm);
+}
+
+/* Tables — admin tables are dense. */
+table { border-collapse: collapse; }

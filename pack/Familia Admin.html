@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>familia/admin</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  /* Matches the admin dark page surface so there's no flash while the screens mount. */
+  body { background: #111827; }
+  .screen { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .screen[hidden] { display: none; }
+</style>
+</head>
+<body>
+<!--
+  Single-page shell. Both screens stay mounted in their own documents (isolated
+  scopes — no global-name collisions) and switching is an instant visibility flip:
+  no document reload and no in-browser Babel re-transpile. Each screen's sidebar
+  posts {type:'familia-nav', screen} up to this shell; opened standalone the
+  screens fall back to a normal page navigation.
+-->
+<iframe id="frame-records" class="screen" src="Customer Records.html" title="Customer records"></iframe>
+<iframe id="frame-models" class="screen" src="Models.html" title="Models" hidden></iframe>
+<iframe id="frame-integrity" class="screen" src="Integrity Console.html" title="Integrity console" hidden></iframe>
+<iframe id="frame-migrations" class="screen" src="Migrations.html" title="Migrations" hidden></iframe>
+<iframe id="frame-explorer" class="screen" src="Raw Explorer.html" title="Raw explorer" hidden></iframe>
+
+<!--
+  Single shared backend lives HERE, in the shell, so both screens share one
+  StateModel for the whole prototype session. Each screen's backend-client.js
+  forwards its requests up via postMessage; we answer from the one instance.
+-->
+<script src="prototype/seed.js"></script>
+<script src="prototype/backend.js"></script>
+<script>
+  (function () {
+    var backend = (window.createFamiliaBackend && window.claude) ? window.createFamiliaBackend() : null;
+    window.addEventListener('message', function (e) {
+      var d = e.data || {};
+      var src = e.source;
+      if (d.type === 'familia-backend-ping') {
+        if (backend && src) src.postMessage({ type: 'familia-backend-pong', ok: true }, '*');
+        return;
+      }
+      if (d.type === 'familia-backend-req' && src) {
+        if (!backend) { src.postMessage({ type: 'familia-backend-res', id: d.id, error: 'no_backend' }, '*'); return; }
+        backend.request(d.envelope).then(function (result) {
+          src.postMessage({ type: 'familia-backend-res', id: d.id, result: result }, '*');
+        }).catch(function (err) {
+          src.postMessage({ type: 'familia-backend-res', id: d.id, error: String((err && err.message) || err) }, '*');
+        });
+      }
+    });
+  })();
+</script>
+
+<script>
+  (function () {
+    var frames = {
+      records: document.getElementById('frame-records'),
+      models: document.getElementById('frame-models'),
+      integrity: document.getElementById('frame-integrity'),
+      migrations: document.getElementById('frame-migrations'),
+      explorer: document.getElementById('frame-explorer'),
+    };
+    function show(screen) {
+      if (!frames[screen]) return;
+      Object.keys(frames).forEach(function (k) { frames[k].hidden = (k !== screen); });
+      if (location.hash.slice(1) !== screen) {
+        history.replaceState(null, '', '#' + screen);
+      }
+    }
+    function resolve() {
+      var h = location.hash.slice(1);
+      return frames[h] ? h : 'records';
+    }
+    // Deep-link support: open …/Familia Admin.html#models (or #integrity) to land there.
+    show(resolve());
+    window.addEventListener('message', function (e) {
+      var d = e.data || {};
+      if (d.type === 'familia-nav') show(d.screen);
+    });
+    window.addEventListener('hashchange', function () {
+      show(resolve());
+    });
+  })();
+</script>
+</body>
+</html>

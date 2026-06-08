@@ -1,0 +1,60 @@
+/* Familia Admin typography.
+ *
+ * Base size 13px (dense). Mono is the workhorse face for any machine value:
+ * keys, identifiers, scores, digests, commands. Body face is Caskaydia Cove
+ * proportional — a Nerd-Font variant of Cascadia Code, slightly humanized.
+ *
+ * Sizes are intentionally compact; this is an operator console, not a
+ * marketing surface.
+ */
+
+:root {
+  /* ---- Otto baselines (kept for parity with the framework) ---- */
+  --otto-font-family: 'Caskaydia Cove', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --otto-font-mono:   'Caskaydia Cove Mono', 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+
+  /* ---- Admin family ---- */
+  --admin-font-family:   var(--otto-font-family);
+  --admin-mono:          var(--otto-font-mono);   /* keys, ids, scores, digests, commands */
+  --admin-mono-condensed:'Agave Mono', var(--admin-mono);
+
+  /* ---- Size scale (px; dense) ---- */
+  --admin-font-size-xs:   11px;   /* meta, captions */
+  --admin-font-size-sm:   12px;   /* secondary text, table small */
+  --admin-font-size-base: 13px;   /* default body */
+  --admin-font-size-md:   14px;   /* slightly larger body */
+  --admin-font-size-lg:   16px;   /* subheads */
+  --admin-font-size-xl:   20px;   /* page H2 */
+  --admin-font-size-2xl:  24px;   /* page H1 */
+
+  /* ---- Weight scale ---- */
+  --admin-weight-light:    300;
+  --admin-weight-regular:  400;
+  --admin-weight-medium:   500;   /* falls back to 400/600 */
+  --admin-weight-semibold: 600;
+  --admin-weight-bold:     700;
+
+  /* ---- Line height ---- */
+  --admin-line-height:        1.45;
+  --admin-line-height-tight:  1.25;
+  --admin-line-height-mono:   1.5;
+
+  /* ---- Letter spacing — uppercase eyebrows and table headers ---- */
+  --admin-tracking-eyebrow: 0.08em;
+  --admin-tracking-label:   0.04em;
+}
+
+/* Sensible global defaults — components opt into more specific styles. */
+html {
+  font-family: var(--admin-font-family);
+  font-size: var(--admin-font-size-base);
+  line-height: var(--admin-line-height);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'ss01', 'calt';   /* Cascadia ligatures off in identifiers via .mono */
+}
+
+code, kbd, samp, pre, .admin-mono {
+  font-family: var(--admin-mono);
+  font-feature-settings: 'liga' 0, 'calt' 0;  /* exact glyphs for ids/keys */
+}
