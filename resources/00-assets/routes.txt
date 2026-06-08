@@ -1,3 +1,5 @@
+# resources/00-assets/routes.txt
+# ---
 # familia-admin :: Otto routes
 #
 # Plain-text routing for a model-aware Familia admin API. Otto turns each line
