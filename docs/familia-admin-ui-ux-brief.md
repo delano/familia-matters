@@ -6,7 +6,7 @@ different, and the concrete contract the backend provides. The full engineering
 study lives in `familia-admin-ui-design.md`; this document is the subset a
 designer needs, reframed for design work.
 
-Companion artifacts in `familia-admin/`: the Otto `routes` file (the endpoint
+Companion artifacts in `resources/00-assets`: the Otto `routes.txt` file (the endpoint
 map), `lib/familia/admin/descriptor.rb` (produces the model descriptor that
 drives every dynamic screen), and `lib/familia/admin/api.rb` (the controller
 that serves the contract below).
@@ -192,7 +192,7 @@ reason to exist, so give them strong, distinctive design.
 ## 8. What the backend provides (the contract you design against)
 
 The backend is an introspection-driven JSON API plus live streams. Endpoints are
-defined in `familia-admin/routes`. The shapes below are what the UI consumes.
+defined in `resources/00-assets/routes.txt`. The shapes below are what the UI consumes.
 Auth tiers are enforced server-side; the UI should hide actions the user lacks
 the tier for.
 

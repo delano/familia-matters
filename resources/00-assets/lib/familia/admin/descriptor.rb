@@ -1,3 +1,5 @@
+# resources/00-assets/lib/familia/admin/descriptor.rb
+#
 # frozen_string_literal: true
 
 # Familia::Admin::Descriptor
