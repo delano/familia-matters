@@ -203,25 +203,36 @@
     var url = buildUrl(plan);
     var init = { method: plan.method, headers: buildHeaders(plan) };
     if (plan.body !== undefined) init.body = JSON.stringify(plan.body);
+    // Stream denials are 302 -> /signin; don't follow the redirect and swallow
+    // the signin page. redirect:'manual' surfaces the 3xx (or an opaqueredirect)
+    // so the stream branch can map it to the forbidden deny shape (Bug #6).
+    if (plan.stream) init.redirect = 'manual';
 
     // fetch throwing (network failure) propagates to the caller (offline mirror).
     var res = await fetch(url, init);
 
-    // 401/403 → forbidden, resolved (never rejected) so gated UI renders.
-    if (res.status === 401 || res.status === 403) {
-      return { error: 'forbidden', required_tier: requiredTier(env.action) };
-    }
-
-    // Streaming repair: read the SSE body to completion, resolve the event array.
+    // Streaming repair: only a genuine 2xx text/event-stream body is the event
+    // array. A 3xx redirect, an opaque redirect (res.type==='opaqueredirect',
+    // status 0), any non-2xx, or a non-event-stream content-type means the route
+    // denied us (302 -> /signin) -> resolve the forbidden deny shape (Bug #6).
     if (plan.stream) {
-      if (res.ok) {
+      var streamCT = String((res.headers && res.headers.get && res.headers.get('content-type')) || '');
+      var isEventStream = res.ok && res.status >= 200 && res.status < 300 &&
+        res.type !== 'opaqueredirect' && /text\/event-stream/i.test(streamCT);
+      if (isEventStream) {
         var body = await res.text();
         return parseSSE(body);
       }
-      // Non-2xx, non-401/403 on the stream route: surface a JSON error if any.
-      var serr = await parseJsonSafe(res);
-      if (serr && serr.error) return serr;
-      throw new Error('http_' + res.status);
+      return { error: 'forbidden', required_tier: requiredTier('integrity.repair') };
+    }
+
+    // 401/403 → parse the body first. A real JSON error code (command_blocked,
+    // scan_required, or any {error:...}) is resolved verbatim (Bug #5); only a
+    // generic/empty/unparseable auth failure synthesizes the forbidden envelope.
+    if (res.status === 401 || res.status === 403) {
+      var authBody = await parseJsonSafe(res);
+      if (authBody && typeof authBody === 'object' && authBody.error) return authBody;
+      return { error: 'forbidden', required_tier: requiredTier(env.action) };
     }
 
     if (res.ok) {
