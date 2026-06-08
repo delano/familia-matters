@@ -1,0 +1,66 @@
+{
+  "endpoint": "GET /admin/api/integrity/customer",
+  "_note": "Representative AuditReport#to_h. Contains one of every issue type the console must render: phantom, missing, stale unique index, stale + orphaned multi index, stale participation member, and cross-reference drift. A healthy report has the same shape with empty arrays and healthy: true.",
+
+  "healthy": false,
+  "model": "Customer",
+  "checked_at": 1749200000,
+  "complete": true,
+
+  "instances": {
+    "count_timeline": 1284,
+    "count_scan": 1282,
+    "phantoms": ["cust_legacy_01", "cust_legacy_02"],
+    "missing": ["cust_9931"]
+  },
+
+  "unique_indexes": [
+    {
+      "index_name": "email_lookup",
+      "stale": ["bob@old.example"],
+      "missing": ["dana@example.com"]
+    }
+  ],
+
+  "multi_indexes": [
+    {
+      "index_name": "status_index",
+      "stale_members": ["cust_4410bd"],
+      "orphaned_keys": ["customer:status_index:archived"]
+    }
+  ],
+
+  "participations": [
+    {
+      "collection_name": "api_keys",
+      "stale_members": [
+        { "identifier": "key_dead01", "collection_key": "customer:cust_8f2a91:api_keys", "reason": "record_missing" }
+      ]
+    }
+  ],
+
+  "related_fields": { "healthy": true, "checked": ["recent_logins", "feature_flags", "domains", "metadata", "login_count"] },
+
+  "cross_references": {
+    "status": "issues_found",
+    "in_instances_missing_unique_index": ["cust_2200ee"],
+    "index_points_to_wrong_identifier": [
+      { "index": "email_lookup", "field_value": "erin@example.com", "points_to": "cust_old99", "actual": "cust_2200ee" }
+    ]
+  },
+
+  "summary": {
+    "total_issues": 9,
+    "by_type": {
+      "phantoms": 2,
+      "missing": 1,
+      "stale_unique_index": 1,
+      "missing_unique_index": 1,
+      "stale_multi_member": 1,
+      "orphaned_index_key": 1,
+      "stale_participation": 1,
+      "cross_ref_missing_index": 1,
+      "cross_ref_wrong_target": 1
+    }
+  }
+}

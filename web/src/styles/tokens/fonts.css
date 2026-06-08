@@ -1,0 +1,117 @@
+/* Webfonts shipped with the Familia Admin design system.
+ *
+ * Caskaydia Cove — a Nerd-Font build of Microsoft's Cascadia Code. We use
+ *   the proportional "Caskaydia Cove" build as our UI/body face (it has
+ *   slightly humanized proportions vs. strict mono) and the "Mono" build
+ *   strictly for code, keys, identifiers, digests, scores, and commands.
+ *
+ * Agave Nerd Font — alternate condensed monospace. Available for diff/log
+ *   views or for users that prefer a denser glyph; not the default.
+ *
+ * All faces are nerd-font patched, so glyphs in the Powerline / Nerd Font
+ * private-use blocks render correctly in CLI output we mirror in the UI.
+ */
+
+/* ---------- Caskaydia Cove (UI / body, proportional) ---------- */
+@font-face {
+  font-family: 'Caskaydia Cove';
+  src: url('../assets/fonts/CaskaydiaCove-ExtraLight.otf') format('opentype');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Caskaydia Cove';
+  src: url('../assets/fonts/CaskaydiaCove-Light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Caskaydia Cove';
+  src: url('../assets/fonts/CaskaydiaCove-SemiLight.otf') format('opentype');
+  font-weight: 350;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Caskaydia Cove';
+  src: url('../assets/fonts/CaskaydiaCove-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Caskaydia Cove';
+  src: url('../assets/fonts/CaskaydiaCove-SemiBold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Caskaydia Cove';
+  src: url('../assets/fonts/CaskaydiaCove-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------- Caskaydia Cove Mono (strict monospace) ---------- */
+@font-face {
+  font-family: 'Caskaydia Cove Mono';
+  src: url('../assets/fonts/CaskaydiaCove-ExtraLight-Mono.otf') format('opentype');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Caskaydia Cove Mono';
+  src: url('../assets/fonts/CaskaydiaCove-Light-Mono.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Caskaydia Cove Mono';
+  src: url('../assets/fonts/CaskaydiaCove-SemiLight-Mono.otf') format('opentype');
+  font-weight: 350;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Caskaydia Cove Mono';
+  src: url('../assets/fonts/CaskaydiaCove-Regular-Mono.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Caskaydia Cove Mono';
+  src: url('../assets/fonts/CaskaydiaCove-SemiBold-Mono.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Caskaydia Cove Mono';
+  src: url('../assets/fonts/CaskaydiaCove-Bold-Mono.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------- Agave (alternate condensed mono) ---------- */
+@font-face {
+  font-family: 'Agave';
+  src: url('../assets/fonts/Agave-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Agave Mono';
+  src: url('../assets/fonts/Agave-Regular-Mono.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}

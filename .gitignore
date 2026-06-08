@@ -1,1 +1,29 @@
+# ---- Ruby ----
+/.bundle/
+/vendor/bundle/
+*.gem
+*.rbc
+/tmp/
+/log/
+*.log
+.byebug_history
+
+# ---- Node / frontend (web/) ----
+web/node_modules/
+web/dist/
+web/.vite/
+npm-debug.log*
+
+# ---- Local data / runtime ----
+/data/redis/
+dump.rdb
+*.pid
+
+# ---- Editors / OS ----
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# ---- Misc ----
 pack/

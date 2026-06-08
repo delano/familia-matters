@@ -1,0 +1,84 @@
+{
+  "customer_list": {
+    "endpoint": "GET /admin/api/models/customer/records?offset=0&limit=50",
+    "model": "customer",
+    "offset": 0,
+    "limit": 50,
+    "count_fast": 1284,
+    "count_fast_note": "From the instances timeline (O(1)). May include phantoms. The integrity console reconciles against a SCAN count.",
+    "records": [
+      { "custid": "cust_8f2a91", "email": "alice@example.com", "name": "Alice Ng", "status": "active", "created_at": 1730419200, "updated_at": 1748736000, "api_secret": "[CONCEALED]" },
+      { "custid": "cust_4410bd", "email": "bob@example.com", "name": "Bob Tran", "status": "pending", "created_at": 1733011200, "updated_at": 1733011200, "api_secret": "[CONCEALED]" },
+      { "custid": "cust_2200ee", "email": "erin@example.com", "name": "Erin Diaz", "status": "inactive", "created_at": 1727740800, "updated_at": 1746057600, "api_secret": "[CONCEALED]" }
+    ]
+  },
+
+  "customer_detail": {
+    "endpoint": "GET /admin/api/models/customer/records/cust_8f2a91",
+    "custid": "cust_8f2a91",
+    "email": "alice@example.com",
+    "name": "Alice Ng",
+    "status": "active",
+    "created_at": 1730419200,
+    "updated_at": 1748736000,
+    "api_secret": "[CONCEALED]",
+    "_key": "customer:cust_8f2a91:object",
+    "_note": "password (transient) is absent by design. api_secret is masked. Collections (recent_logins, feature_flags, domains, metadata, login_count) load via their own endpoints, below."
+  },
+
+  "reveal_response": {
+    "endpoint": "POST /admin/api/models/customer/records/cust_8f2a91/reveal/api_secret",
+    "api_secret": "sk_live_9f8c2a7b1e4d6093",
+    "_audit": { "at": 1749200120, "actor": "admin_42", "action": "reveal", "model": "customer", "id": "cust_8f2a91", "field": "api_secret" },
+    "_note": "Returned once. The reveal is written to the audit trail. UI should show a 'this was logged' notice."
+  },
+
+  "collection_sorted_set": {
+    "endpoint": "GET /admin/api/models/customer/records/cust_8f2a91/domains?offset=0&limit=50",
+    "collection": "domains",
+    "type": "sorted_set",
+    "offset": 0,
+    "limit": 50,
+    "members": [
+      { "member": "example.com", "score": 1730419200 },
+      { "member": "alice.dev", "score": 1733097600 },
+      { "member": "ng.consulting", "score": 1744761600 }
+    ],
+    "_note": "Sorted-set scores here are timestamps. Design should offer a time-formatted view and a score-range filter."
+  },
+
+  "collection_hashkey": {
+    "endpoint": "GET /admin/api/models/customer/records/cust_8f2a91/metadata",
+    "collection": "metadata",
+    "type": "hashkey",
+    "entries": { "signup_source": "referral", "plan": "team", "region": "eu-west" }
+  },
+
+  "collection_counter": {
+    "endpoint": "GET /admin/api/models/customer/records/cust_8f2a91/login_count",
+    "collection": "login_count",
+    "type": "counter",
+    "value": 318
+  },
+
+  "indexed_query": {
+    "endpoint": "GET /admin/api/models/customer/index/status_index?value=active&offset=0&limit=50",
+    "index": "status_index",
+    "value": "active",
+    "records": [
+      { "custid": "cust_8f2a91", "email": "alice@example.com", "name": "Alice Ng", "status": "active", "created_at": 1730419200, "updated_at": 1748736000, "api_secret": "[CONCEALED]" }
+    ],
+    "_note": "Indexed query is the only cheap filter. A request to filter on a non-indexed field should return a cost warning instead of running silently."
+  },
+
+  "api_key_detail": {
+    "endpoint": "GET /admin/api/models/api_key/records/key_77c3",
+    "keyid": "key_77c3",
+    "custid": "cust_8f2a91",
+    "label": "CI deploy token",
+    "created_at": 1738368000,
+    "last_used_at": 1748908800,
+    "secret": "[CONCEALED]",
+    "_key": "api_key:key_77c3:object"
+  }
+}

@@ -1,0 +1,24 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+#
+# Seed the configured database with the demo dataset (records, collections, an
+# encrypted secret, deliberate integrity drift) and the demo migration state.
+#
+#   bin/seed              # with integrity drift (default)
+#   SEED_DRIFT=0 bin/seed # clean (healthy) dataset
+
+require 'bundler/setup'
+$LOAD_PATH.unshift File.expand_path('../lib', __dir__)
+require 'familia/admin'
+require_relative '../lib/familia/admin/seed'
+
+Familia::Admin::Boot.boot!
+Familia::Admin::Auth.load_from_env!
+
+drift = !%w[0 false no off].include?(ENV['SEED_DRIFT'].to_s.downcase)
+Familia::Admin::Seed.run!(drift: drift)
+Familia::Admin::Migrations.seed!
+
+puts "Seeded #{Customer.count} customers on #{Familia.uri} (drift=#{drift})."
+puts "Migrations: #{Familia::Admin::Migrations.status[:applied].size} applied, " \
+     "#{Familia::Admin::Migrations.status[:pending].size} pending."

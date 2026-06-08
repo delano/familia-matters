@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Run the Tryouts contract + security suite (the fixtures/*.json shapes are the
+# contract). Pass file paths to run a subset, e.g. `bin/test try/security_try.rb`.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+TRY="$(bundle show tryouts)/exe/try"
+if [ "$#" -gt 0 ]; then
+  exec bundle exec ruby "$TRY" "$@"
+else
+  exec bundle exec ruby "$TRY" try/*_try.rb
+fi

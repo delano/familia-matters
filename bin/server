@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Start the admin API (and SPA, if web/dist is built) on Puma — a server that
+# supports the Rack 3 streaming bodies used by the live endpoints.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+# Prefer the binstub; fall back to the gem's executable when bundler doesn't
+# expose gem binaries on PATH.
+if bundle exec puma --version >/dev/null 2>&1; then
+  exec bundle exec puma -p "${PORT:-9292}" config.ru
+else
+  PUMA="$(bundle show puma)/bin/puma"
+  exec bundle exec ruby "$PUMA" -p "${PORT:-9292}" config.ru
+fi

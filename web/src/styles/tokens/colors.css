@@ -1,0 +1,133 @@
+/* Familia Admin colors.
+ *
+ * Anchored on Otto's design tokens (otto/lib/otto/design_system.rb). The
+ * --otto-* layer is the framework palette and never changes between themes;
+ * the --admin-* layer is the semantic surface — those reshuffle for dark/light.
+ *
+ * Status hues carry meaning:
+ *   success / healthy  green
+ *   warning / caution  amber  (stale index, schema drift, approximate count)
+ *   error   / broken   red    (phantom, missing, failed repair, mismatch)
+ *   info    / preview  blue   (dry-run, plan output, "logged" notices)
+ *
+ * Otto's pink/purple is the *accent* — primary actions and active nav only.
+ * Never a background wash, never a gradient.
+ */
+
+:root {
+  /* ---- Otto brand (accent only; never a background wash) ---- */
+  --otto-primary:        #E879F9;  /* Otto pink: primary action, active nav */
+  --otto-primary-dark:   #C026D3;
+  --otto-primary-light:  #F3E8FF;
+  --otto-secondary:      #A855F7;  /* Otto purple */
+  --otto-accent:         #FB923C;  /* Otto orange */
+
+  /* ---- Semantic base ---- */
+  --otto-success:        #059669;  --otto-success-light:  #D1FAE5;
+  --otto-warning:        #D97706;  --otto-warning-light:  #FEF3C7;
+  --otto-error:          #DC2626;  --otto-error-light:    #FEE2E2;
+  --otto-info:           #0284C7;  --otto-info-light:     #E0F2FE;
+
+  /* ---- Neutral scale (50 → 900) ---- */
+  --otto-gray-50:        #F9FAFB;
+  --otto-gray-100:       #F3F4F6;
+  --otto-gray-200:       #E5E7EB;
+  --otto-gray-300:       #D1D5DB;
+  --otto-gray-400:       #9CA3AF;
+  --otto-gray-500:       #6B7280;
+  --otto-gray-600:       #4B5563;
+  --otto-gray-700:       #374151;
+  --otto-gray-800:       #1F2937;
+  --otto-gray-900:       #111827;
+
+  /* =======================================================
+   * Light theme — semantic aliases (default)
+   * ======================================================= */
+  --admin-bg:                 #FFFFFF;
+  --admin-surface:            var(--otto-gray-50);
+  --admin-surface-raised:     #FFFFFF;
+  --admin-surface-sunken:     var(--otto-gray-100);
+  --admin-text:               var(--otto-gray-900);
+  --admin-text-muted:         var(--otto-gray-500);
+  --admin-text-subtle:        var(--otto-gray-400);
+  --admin-border-color:       var(--otto-gray-200);
+  --admin-border-strong:      var(--otto-gray-300);
+  --admin-border:             1px solid var(--admin-border-color);
+
+  /* Status semantics (use these, not raw colors) */
+  --admin-status-healthy:     var(--otto-success);
+  --admin-status-caution:     var(--otto-warning);
+  --admin-status-broken:      var(--otto-error);
+  --admin-status-preview:     var(--otto-info);
+  --admin-status-neutral:     var(--otto-gray-400);
+
+  /* Tinted issue-row fills (light) */
+  --admin-status-healthy-bg:  var(--otto-success-light);
+  --admin-status-caution-bg:  var(--otto-warning-light);
+  --admin-status-broken-bg:   var(--otto-error-light);
+  --admin-status-preview-bg:  var(--otto-info-light);
+
+  /* Field-category chips */
+  --admin-field-encrypted:    var(--otto-gray-600);  /* [CONCEALED] */
+  --admin-field-transient:    var(--otto-gray-400);  /* [REDACTED]  */
+  --admin-field-identifier:   var(--otto-secondary);
+
+  /* Brand accent, applied sparingly */
+  --admin-accent:             var(--otto-primary);
+  --admin-accent-hover:       var(--otto-primary-dark);
+  --admin-accent-tint:        var(--otto-primary-light);
+  --admin-accent-on:          #FFFFFF;
+
+  /* Focus ring — Otto pink at 35% over surface */
+  --admin-focus-ring:         0 0 0 2px var(--admin-bg), 0 0 0 4px rgba(232, 121, 249, 0.45);
+
+  /* Code surfaces */
+  --admin-code-bg:            var(--otto-gray-100);
+  --admin-code-text:          var(--otto-gray-800);
+
+  /* Selection */
+  --admin-selection-bg:       rgba(232, 121, 249, 0.18);
+}
+
+/* =======================================================
+ * Dark theme — explicit opt-in
+ * Maps surfaces to gray-900/800, text to gray-100/300, borders to gray-700.
+ * ======================================================= */
+:root[data-theme="dark"] {
+  --admin-bg:                 var(--otto-gray-900);
+  --admin-surface:            var(--otto-gray-800);
+  --admin-surface-raised:     #283142;   /* slightly lifted off gray-800 */
+  --admin-surface-sunken:     #0B1220;   /* below the page surface */
+  --admin-text:               var(--otto-gray-100);
+  --admin-text-muted:         var(--otto-gray-400);
+  --admin-text-subtle:        var(--otto-gray-500);
+  --admin-border-color:       var(--otto-gray-700);
+  --admin-border-strong:      #4B5876;
+  --admin-border:             1px solid var(--otto-gray-700);
+
+  /* Issue-row tints — 14% alpha of the status hue, not the -light fills */
+  --admin-status-healthy-bg:  rgba(5, 150, 105, 0.14);
+  --admin-status-caution-bg:  rgba(217, 119, 6, 0.16);
+  --admin-status-broken-bg:   rgba(220, 38, 38, 0.16);
+  --admin-status-preview-bg:  rgba(2, 132, 199, 0.16);
+
+  --admin-field-encrypted:    var(--otto-gray-300);
+  --admin-field-transient:    var(--otto-gray-500);
+
+  --admin-accent-on:          #1A0B22;
+  --admin-focus-ring:         0 0 0 2px var(--admin-bg), 0 0 0 4px rgba(232, 121, 249, 0.55);
+
+  --admin-code-bg:            #0B1220;
+  --admin-code-text:          var(--otto-gray-100);
+
+  --admin-selection-bg:       rgba(232, 121, 249, 0.28);
+}
+
+/* System dark is handled by JS: the App sets data-theme="dark" when
+ * prefers-color-scheme: dark. This keeps selectors to :root[data-theme="dark"]
+ * only, which the design-system compiler can register correctly. */
+
+::selection {
+  background: var(--admin-selection-bg);
+  color: var(--admin-text);
+}

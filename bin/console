@@ -1,0 +1,20 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+#
+# An IRB console with Familia booted and the admin loaded. Handy for poking at
+# Customer.health_check, the descriptor, the migration runner, etc.
+
+require 'bundler/setup'
+$LOAD_PATH.unshift File.expand_path('../lib', __dir__)
+require 'familia/admin'
+require_relative '../lib/familia/admin/seed'
+
+Familia::Admin::Boot.boot!
+Familia::Admin::Auth.load_from_env!
+
+puts "familia-admin console — Familia #{Familia::VERSION} on #{Familia.uri}"
+puts 'Models: ' + Familia.members.map(&:name).join(', ')
+puts 'Try: Customer.health_check(check_cross_refs: true).to_h'
+
+require 'irb'
+IRB.start

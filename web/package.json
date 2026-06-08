@@ -1,0 +1,21 @@
+{
+  "name": "familia-admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Familia Admin — a model-aware web admin for applications built on Familia (a Ruby object layer over Redis/Valkey).",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "sync-vendor": "node scripts/sync-vendor.mjs",
+    "postinstall": "node scripts/sync-vendor.mjs"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "vite": "^5.4.10"
+  }
+}

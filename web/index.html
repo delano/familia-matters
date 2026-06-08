@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>familia/admin</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  /* Matches the admin dark page surface so there's no flash while the app mounts. */
+  body { background: var(--admin-bg, #111827); color: var(--admin-text, #F3F4F6); font-family: var(--admin-font-family); overflow: hidden; }
+  #root { height: 100%; }
+  button { cursor: pointer; font-family: inherit; }
+  button:disabled { cursor: not-allowed; }
+  input, select { font-family: inherit; }
+  @keyframes admin-spin { to { transform: rotate(360deg); } }
+  /* Dense, console-grade scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--admin-border-strong); border-radius: 9999px; border: 2px solid var(--admin-bg); }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+
+<!--
+  React + ReactDOM (UMD) and the design-system component bundle load as classic
+  scripts so they share ONE global `React`. Our ES-module app (main.jsx, below)
+  consumes that global — see vite.config.js for why we don't bundle a second copy.
+-->
+<script src="/vendor/react.production.min.js"></script>
+<script src="/vendor/react-dom.production.min.js"></script>
+<script src="/vendor/ds-bundle.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="module" src="/src/main.jsx"></script>
+</body>
+</html>

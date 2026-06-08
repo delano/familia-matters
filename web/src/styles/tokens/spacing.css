@@ -1,0 +1,75 @@
+/* Familia Admin spacing, radius, shadow, motion.
+ *
+ * Density: ~32px table rows, 8px gutters, 16px section gaps. The Otto
+ * --otto-space-* scale is preserved for parity with the framework; the
+ * --admin-* aliases name the contexts we actually use.
+ */
+
+:root {
+  /* ---- Otto raw scale ---- */
+  --otto-space-xs:  0.25rem;   /* 4px  */
+  --otto-space-sm:  0.5rem;    /* 8px  */
+  --otto-space-md:  1rem;      /* 16px */
+  --otto-space-lg:  1.5rem;    /* 24px */
+  --otto-space-xl:  2rem;      /* 32px */
+  --otto-space-2xl: 3rem;      /* 48px */
+
+  /* ---- Admin density aliases ---- */
+  --admin-space-1:  4px;
+  --admin-space-2:  8px;
+  --admin-space-3:  12px;
+  --admin-space-4:  16px;
+  --admin-space-5:  20px;
+  --admin-space-6:  24px;
+  --admin-space-8:  32px;
+  --admin-space-10: 40px;
+  --admin-space-12: 48px;
+
+  --admin-gutter:       var(--otto-space-sm);   /* 8px  — between fields, table cell padding */
+  --admin-section-gap:  var(--otto-space-lg);   /* 24px — between sections */
+  --admin-row-height:   32px;                   /* table & list row baseline */
+  --admin-row-height-sm:28px;
+  --admin-row-height-lg:40px;
+  --admin-toolbar-h:    44px;
+  --admin-topbar-h:     48px;
+  --admin-sidebar-w:    232px;
+
+  /* ---- Radii (subtle — operator console, not consumer) ---- */
+  --otto-radius-sm:  4px;
+  --otto-radius-md:  6px;
+  --otto-radius-lg:  8px;
+  --otto-radius-xl:  12px;
+  --otto-radius-pill:9999px;
+
+  --admin-radius-sm: var(--otto-radius-sm);
+  --admin-radius:    var(--otto-radius-md);
+  --admin-radius-lg: var(--otto-radius-lg);
+
+  /* ---- Shadows — used sparingly, mostly for floating menus & dialogs ---- */
+  --otto-shadow:        0 1px 3px 0 rgba(0,0,0,.10), 0 1px 2px 0 rgba(0,0,0,.06);
+  --otto-shadow-md:     0 4px 6px -1px rgba(0,0,0,.10), 0 2px 4px -1px rgba(0,0,0,.06);
+  --otto-shadow-lg:     0 10px 25px -5px rgba(0,0,0,.16), 0 6px 10px -6px rgba(0,0,0,.10);
+
+  --admin-shadow-popover: var(--otto-shadow-md);
+  --admin-shadow-dialog:  var(--otto-shadow-lg);
+
+  /* ---- Motion ---- */
+  --otto-transition:       all .2s ease;       /* @kind other */
+  --otto-transition-fast:  all .1s ease;       /* @kind other */
+  --admin-motion-fast:     90ms;               /* @kind other */
+  --admin-motion-base:     160ms;              /* @kind other */
+  --admin-motion-slow:     260ms;              /* @kind other */
+  --admin-ease:            cubic-bezier(0.2, 0, 0, 1); /* @kind other */
+
+  /* ---- Z-index ladder ---- */
+  --admin-z-popover: 50;   /* @kind other */
+  --admin-z-toast:   80;   /* @kind other */
+  --admin-z-dialog:  100;  /* @kind other */
+}
+
+:root[data-theme="dark"] {
+  --otto-shadow:        0 1px 2px 0 rgba(0,0,0,.40);
+  --otto-shadow-md:     0 6px 16px -4px rgba(0,0,0,.50);
+  --otto-shadow-lg:     0 16px 38px -10px rgba(0,0,0,.65);
+}
+/* Shadow overrides for dark theme live under [data-theme="dark"] above. */
