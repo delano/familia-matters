@@ -16,6 +16,16 @@
 # elevated actions from the security checklist; everything else is role:admin.
 
 # ============================================================
+# AUTH  (browser session: shared passphrase -> HttpOnly PASETO cookie)
+#   login/logout are reachable WITHOUT a session; the session-introspection
+#   endpoint requires one. csrf=exempt: the cookie's CSRF defense is SameSite=
+#   Strict + the OriginGuard middleware, not Otto's token CSRF (off here).
+# ============================================================
+POST   /admin/api/auth/login                             Admin::Sessions#login      response=json csrf=exempt
+GET    /admin/api/auth/session                           Admin::Sessions#show       response=json auth=role:admin
+DELETE /admin/api/auth/session                           Admin::Sessions#destroy    response=json csrf=exempt
+
+# ============================================================
 # DISCOVERY  (the descriptor IS the frontend's source of truth)
 # ============================================================
 GET    /admin/api/_meta                                  Admin::API#meta            response=json auth=role:admin
