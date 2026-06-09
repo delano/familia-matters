@@ -67,6 +67,7 @@ function XStateSwitcher({ value, onChange }) {
 function RawExplorerApp() {
   const [dark, setDark] = React.useState(true);
   const [screenState, setScreenState] = React.useState('idle');
+  const [offline, setOffline] = React.useState(false);
 
   React.useEffect(() => {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
@@ -89,7 +90,7 @@ function RawExplorerApp() {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: 'var(--admin-bg)', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100vh', background: 'var(--admin-bg)', overflow: 'hidden', boxShadow: offline ? 'inset 0 0 0 3px var(--admin-status-caution)' : 'none', transition: 'box-shadow 0.3s ease' }}>
       <XAppSidebar logo={<XWordmark />} items={navItems} activeId="raw" onNavigate={onNav} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
         <XAppTopbar
@@ -106,7 +107,7 @@ function RawExplorerApp() {
           )}
         />
         <main style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-          <window.RawExplorer state={screenState} setState={setScreenState} />
+          <window.RawExplorer state={screenState} setState={setScreenState} offline={offline} onOfflineChange={setOffline} />
         </main>
       </div>
     </div>

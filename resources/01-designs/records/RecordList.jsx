@@ -271,14 +271,13 @@ function RowActions({ rec, actions, onOpen }) {
   );
 }
 
-function RecordList({ onOpen }) {
+function RecordList({ onOpen, offline, onOfflineChange }) {
   const RI = window.RICONS;
   const toast = RLtoast();
   const model = window.REC.CUSTOMER;
 
   const [all, setAll] = React.useState(() => window.REC.RECORDS.map((r) => ({ ...r })));
   const [counts, setCounts] = React.useState({ fast: window.REC.COUNT_FAST, scan: window.REC.COUNT_SCAN });
-  const [offline, setOffline] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
 
   const [query, setQuery] = React.useState('');
@@ -295,7 +294,7 @@ function RecordList({ onOpen }) {
     const res = await window.RSTORE.list();
     setAll(res.records);
     setCounts({ fast: res.countFast, scan: res.countScan });
-    setOffline(res.offline);
+    onOfflineChange(res.offline);
     setLoading(false);
   }, []);
   React.useEffect(() => { reload(); }, [reload]);
@@ -374,7 +373,7 @@ function RecordList({ onOpen }) {
               <span style={{ color: 'var(--admin-accent)', display: 'flex' }}><RI.table size={18} /></span>
               <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em' }}>Customer records</h1>
               <RLMono2 size="sm" muted>{model.key_pattern}</RLMono2>
-              {offline && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--admin-status-caution)' }} title="Backend unreachable — serving from seed">simulated</span>}
+              {offline && <SimulatedBadge />}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
               <button type="button" onClick={() => onOpen('__models__')} title="Open the model definition" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>

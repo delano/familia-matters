@@ -128,7 +128,7 @@
       if (isErr(res, 'unknown_command')) return { unknown: true, cmd, offline: false };
       if (isErr(res, 'empty')) return { empty: true, offline: false };
       if (isErr(res)) throw new Error(res.error);
-      return { cmd, args, result: stringifyResult(res), simulated: res._simulated !== false, forced: !!res.forced, offline: false };
+      return { cmd, args, result: stringifyResult(res), simulated: res.simulated !== false, forced: !!res.forced, offline: false };
     } catch (e) {
       const r = RAW.runCommandLocal(line, tier, !!o.force);
       if (r.error === 'command_blocked') return { blocked: true, cmd: r.cmd, required_tier: r.required_tier, reason: r.reason, offline: true };
@@ -142,7 +142,7 @@
     if (typeof res.result === 'string') return res.result;
     if (res.result != null) return typeof res.result === 'object' ? JSON.stringify(res.result, null, 2) : String(res.result);
     if (typeof res === 'string') return res;
-    const { _simulated, cmd, args, forced, ...rest } = res;
+    const { _simulated, simulated, cmd, args, forced, ...rest } = res;
     return Object.keys(rest).length ? JSON.stringify(rest, null, 2) : '(ok)';
   }
 

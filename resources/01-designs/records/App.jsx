@@ -32,6 +32,7 @@ function RWordmark() {
 
 function RecordsApp() {
   const [dark, setDark] = React.useState(true);
+  const [offline, setOffline] = React.useState(false);
   const [view, setView] = React.useState({ name: 'list' }); // {name:'list'} | {name:'detail', custid, intent}
 
   React.useEffect(() => {
@@ -64,7 +65,7 @@ function RecordsApp() {
 
   return (
     <ToastHost>
-      <div style={{ display: 'flex', height: '100vh', background: 'var(--admin-bg)', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', height: '100vh', background: 'var(--admin-bg)', overflow: 'hidden', boxShadow: offline ? 'inset 0 0 0 3px var(--admin-status-caution)' : 'none', transition: 'box-shadow 0.3s ease' }}>
         <RAppSidebar logo={<RWordmark />} items={navItems} activeId="records" onNavigate={onNav} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
           <RAppTopbar
@@ -81,8 +82,8 @@ function RecordsApp() {
           />
           <main style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             {view.name === 'list'
-              ? <window.RecordList onOpen={open} />
-              : <window.RecordDetail custid={view.custid} intent={view.intent} onBack={back} />}
+              ? <window.RecordList onOpen={open} offline={offline} onOfflineChange={setOffline} />
+              : <window.RecordDetail custid={view.custid} intent={view.intent} onBack={back} offline={offline} onOfflineChange={setOffline} />}
           </main>
         </div>
       </div>

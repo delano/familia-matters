@@ -29,7 +29,7 @@ function ServerInfo({ sections, offline, busy, onRefresh }) {
             <div style={{ fontSize: 13, fontWeight: 600 }}>Server info</div>
             <div style={{ fontSize: 11, color: 'var(--admin-text-muted)' }}>Parsed <code style={{ fontFamily: 'var(--admin-mono)' }}>INFO</code> — simulated, no live connection.</div>
           </div>
-          {offline && <XCBadge tone="caution" uppercase mono>simulated</XCBadge>}
+          {offline && <SimulatedBadge />}
           <XCBtn variant="secondary" size="sm" iconLeft={<XCI.refresh />} loading={busy} onClick={onRefresh}>Refresh</XCBtn>
         </div>
         {INFO_SECTIONS.map((s) => {
@@ -174,7 +174,7 @@ function ConsoleEntry({ entry }) {
         <code style={{ fontFamily: 'var(--admin-mono)', fontSize: 12, color: 'var(--admin-accent)' }}>›</code>
         <code style={{ fontFamily: 'var(--admin-mono)', fontSize: 12, color: 'var(--admin-text)' }}>{entry.cmd}{entry.args && entry.args.length ? ' ' + entry.args.join(' ') : ''}</code>
         {forced && <XCBadge tone="caution" uppercase mono>forced</XCBadge>}
-        <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--admin-text-subtle)' }}>simulated</span>
+        {entry.simulated && <span style={{ marginLeft: 'auto' }}><SimulatedBadge /></span>}
       </div>
       <pre style={{ margin: 0, padding: '8px 12px', background: 'var(--admin-bg)', border: 'var(--admin-border)', borderRadius: 'var(--admin-radius-sm)', fontFamily: 'var(--admin-mono)', fontSize: 12, color: forced ? 'var(--admin-status-caution)' : 'var(--admin-text)', whiteSpace: 'pre-wrap', wordBreak: 'break-all', lineHeight: 1.5 }}>{entry.result}</pre>
     </div>
