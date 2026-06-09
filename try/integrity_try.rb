@@ -45,11 +45,11 @@ sd, drybody = adm_post('/admin/api/integrity/customer/repair?dry_run=true', {}, 
 [sd, drybody['dry_run'], drybody['report'].is_a?(Hash)]
 #=> [200, true, true]
 
-## repair is elevated: a reduced token (no repair permission) is denied at the gate
+## repair is elevated: a reduced token (no repair permission) is denied 403 (valid token, lacks permission)
 reset_and_seed!
 status, = adm_post('/admin/api/integrity/customer/repair', {}, reduced_token)
 status
-#=> 401
+#=> 403
 
 # ---------------------------------------------------------------------------
 # stream_repair SSE -- bug #3: healthy agreement on clean data.
@@ -85,10 +85,11 @@ _s2, ic = adm_get('/admin/api/integrity/customer')
 [done_healthy, ic['healthy'], done_healthy == ic['healthy']]
 #=> [true, true, true]
 
-## stream_repair is elevated: a reduced token is denied. The stream route is NOT
-## response=json, so Otto's auth wrapper denies with a 302 redirect (not a 401);
-## this redirect-on-deny is exactly what client bug #6 must treat as forbidden.
+## stream_repair is elevated: a reduced token (valid, lacks repair permission) is an
+## AUTHORIZATION denial -> 403 even on this non-response=json route (authz denials are
+## 403 regardless of content type; only AUTHENTICATION failures still 302-redirect).
+## A non-2xx is exactly what the client must treat as forbidden.
 reset_and_seed!
 get '/admin/api/stream/repair/customer', {}, { 'HTTP_AUTHORIZATION' => "Bearer #{reduced_token}", 'HTTP_ACCEPT' => 'text/event-stream' }
 [last_response.status, (200..299).cover?(last_response.status)]
-#=> [302, false]
+#=> [403, false]

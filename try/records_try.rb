@@ -110,7 +110,8 @@ status
 
 # ---------------------------------------------------------------------------
 # reveal: elevated (permission:reveal_secrets), audited, plaintext once.
-# Denials come from Otto's auth wrapper as 401 (the strategy is the only gate).
+# The strategy is the only gate. A missing/invalid token denies 401; a VALID token
+# lacking the permission is an authorization denial -> 403.
 # ---------------------------------------------------------------------------
 
 ## reveal returns the decrypted plaintext plus an audit stub (admin token)
@@ -124,8 +125,8 @@ status, body = adm_post('/admin/api/models/customer/records/cust_alice/reveal/em
 [status, body['error']]
 #=> [400, "bad_request"]
 
-## a reduced token (no reveal_secrets permission) is denied at the gate
+## a reduced token (no reveal_secrets permission) is denied 403 (valid token, lacks permission)
 reset_and_seed!
 status, = adm_post('/admin/api/models/customer/records/cust_alice/reveal/api_secret', {}, reduced_token)
 status
-#=> 401
+#=> 403

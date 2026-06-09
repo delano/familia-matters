@@ -34,11 +34,16 @@ require 'securerandom'
 # subprocesses (RACK_ENV passed through `system`), so pinning here is safe.
 ENV['RACK_ENV'] = 'development'
 
+# A known shared passphrase so auth_try can exercise a successful login. Set
+# before boot; Passphrase reads ENV at call time. ||= so a real env value wins.
+ENV['FAMILIA_ADMIN_PASSPHRASE'] ||= 'test-passphrase-correct-horse-battery'
+
 require 'familia/admin/boot'
 Familia::Admin::Boot.setup!(APP_ROOT)
 
 require 'otto'
 require 'rack/test'
+require 'familia/admin/rack_app'
 
 # ---------------------------------------------------------------------------
 # The Otto app: identical wiring to config.ru. Otto logs MCP route-load errors
@@ -47,17 +52,11 @@ require 'rack/test'
 # ---------------------------------------------------------------------------
 ROUTES_PATH = File.join(APP_ROOT, 'resources', '00-assets', 'routes.txt') unless defined?(ROUTES_PATH)
 
+# Build the SAME stack config.ru serves for the API: OriginGuard -> Otto (with the
+# PASETO strategies). Routing the suite through api_app means the CSRF guard is
+# under test, not bypassed. Static serving is omitted (no contract test needs it).
 def build_app!
-  prev = $stderr
-  $stderr = File.open(File::NULL, 'w')
-  begin
-    otto = Otto.new(ROUTES_PATH)
-    Familia::Admin::Auth.register!(otto)
-    otto
-  ensure
-    $stderr.close
-    $stderr = prev
-  end
+  Familia::Admin::RackApp.api_app(Familia::Admin::RackApp.otto(APP_ROOT))
 end
 
 OTTO_APP = build_app! unless defined?(OTTO_APP)
@@ -91,6 +90,78 @@ module AdminTestHarness
   # Arbitrary permission set (e.g. raw_command only).
   def custom_token(perms: [], role: 'admin', sub: 'custom@test')
     Familia::Admin::Auth.mint(sub: sub, role: role, permissions: Array(perms), ttl: 600)
+  end
+
+  # ----- cookie / login helpers ------------------------------------------
+  #
+  # The shared login passphrase the harness configures (see ENV pin above).
+  TEST_PASSPHRASE = ENV.fetch('FAMILIA_ADMIN_PASSPHRASE')
+  # Same-origin string for Rack::Test's default host, so OriginGuard allows a
+  # cookie-authenticated mutation (a foreign value is the CSRF-blocked case).
+  SAME_ORIGIN = 'http://example.org'
+
+  # Rack header carrying the session cookie with the given token value.
+  def cookie_headers(token, json: true, origin: nil)
+    h = { 'HTTP_COOKIE' => "#{Familia::Admin::Auth::SESSION_COOKIE}=#{token}" }
+    if json
+      h['CONTENT_TYPE'] = 'application/json'
+      h['HTTP_ACCEPT']  = 'application/json'
+    end
+    h['HTTP_ORIGIN'] = origin if origin
+    h
+  end
+
+  # Extract the session-cookie value Set by the last response (nil if none/blank).
+  def set_session_cookie_value
+    raw = last_response.headers['set-cookie'] || last_response.headers['Set-Cookie']
+    return nil unless raw
+
+    m = Array(raw).join("\n").match(/#{Familia::Admin::Auth::SESSION_COOKIE}=([^;\s]*)/)
+    m && m[1]
+  end
+
+  # The Set-Cookie attribute segments (lowercased, e.g. 'httponly', 'secure',
+  # 'samesite=strict'), excluding the leading name=value pair. Splitting on ';'
+  # is robust against the token value (base64url, no ';') matching by accident.
+  def set_cookie_attrs
+    raw = last_response.headers['set-cookie'] || last_response.headers['Set-Cookie']
+    return [] unless raw
+
+    Array(raw).join("\n").split(';').map { |s| s.strip.downcase }
+  end
+
+  # POST the login endpoint with a passphrase. Returns [status, json].
+  # ip: sets BOTH REMOTE_ADDR (rate-limit key, client IP) and SERVER_NAME, because
+  # Otto::Request#local? (which drives the loopback-conditional Secure cookie)
+  # requires the server name to be a localhost name too — not the client IP alone.
+  def login(passphrase, ip: nil)
+    headers = { 'CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json' }
+    if ip
+      headers['REMOTE_ADDR'] = ip
+      headers['SERVER_NAME'] = ip
+    end
+    post '/admin/api/auth/login', JSON.generate(passphrase: passphrase), headers
+    parse_body
+  end
+
+  # Cookie-authenticated GET (no token header). Returns [status, json].
+  def cookie_get(path, token)
+    get path, {}, cookie_headers(token)
+    parse_body
+  end
+
+  # Cookie-authenticated POST. Pass origin: to satisfy/trip the OriginGuard.
+  def cookie_post(path, body = {}, token = nil, origin: SAME_ORIGIN)
+    post path, JSON.generate(body), cookie_headers(token, origin: origin)
+    parse_body
+  end
+
+  # DELETE the session endpoint (logout). Returns [status, json].
+  def logout(token = nil)
+    headers = { 'HTTP_ACCEPT' => 'application/json' }
+    headers.merge!('HTTP_COOKIE' => "#{Familia::Admin::Auth::SESSION_COOKIE}=#{token}") if token
+    delete '/admin/api/auth/session', nil, headers
+    parse_body
   end
 
   # ----- request helpers (return [status, parsed_json]) ------------------

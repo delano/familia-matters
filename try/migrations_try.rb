@@ -22,11 +22,11 @@ status, body = adm_get('/admin/api/migrations/drift')
 [status, body.keys, body['drift']]
 #=> [200, ["drift"], nil]
 
-## run is elevated (permission:run_migrations): reduced token denied at the gate
+## run is elevated (permission:run_migrations): reduced token denied 403 (valid token, lacks permission)
 reset_and_seed!
 status, = adm_post('/admin/api/migrations/run', {}, reduced_token)
 status
-#=> 401
+#=> 403
 
 ## run with the admin token reports the runner is unavailable (no Migration lib)
 reset_and_seed!
@@ -34,11 +34,11 @@ status, body = adm_post('/admin/api/migrations/run', { dry_run: true }, admin_to
 [status, body['error'], body['message']]
 #=> [400, "bad_request", "migration runner unavailable"]
 
-## rollback is elevated: reduced token denied at the gate
+## rollback is elevated: reduced token denied 403 (valid token, lacks permission)
 reset_and_seed!
 status, = adm_post('/admin/api/migrations/rollback', { id: 'x' }, reduced_token)
 status
-#=> 401
+#=> 403
 
 ## rollback with the admin token reports the runner is unavailable
 reset_and_seed!

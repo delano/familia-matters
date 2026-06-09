@@ -114,11 +114,14 @@ status, body = adm_get('/admin/api/raw/key', reduced_token, params: { key: 'cust
 [status, body['type'], body['value']['api_secret']]
 #=> [200, "hash", "[CONCEALED]"]
 
-## the reveal route stays gated for a token without reveal_secrets (mask is not a bypass)
+## the reveal route stays gated for a token without reveal_secrets (mask is not a bypass).
+## A VALID token lacking the permission is an AUTHORIZATION denial -> 403 (distinct
+## from a 401 authentication failure), so the UI can report "insufficient permission"
+## without logging the operator out (auth-ui-spec Open Q#4).
 reset_and_seed!
 status, = adm_post('/admin/api/models/customer/records/cust_alice/reveal/api_secret', {}, reduced_token)
 status
-#=> 401
+#=> 403
 
 # ===========================================================================
 # RAW ALLOWLIST: an allowlisted read must be bounded so it is not a memory-DoS
