@@ -15,7 +15,7 @@ const XST = window.XSTORE;
 const SAMPLE_CMD = 'HGETALL customer:cust_8f2a91:object';
 const BLOCK_CMD = 'KEYS *';
 
-function RawExplorer({ state, setState }) {
+function RawExplorer({ state, setState, offline, onOfflineChange }) {
   // key search
   const [pattern, setPattern] = React.useState('customer:*');
   const [typeFilter, setTypeFilter] = React.useState('all');
@@ -48,7 +48,6 @@ function RawExplorer({ state, setState }) {
   const [cmdBusy, setCmdBusy] = React.useState(false);
   const [tierHeld, setTierHeld] = React.useState(false);
 
-  const [offline, setOffline] = React.useState(false);
   const intentRef = React.useRef('idle');
   const tierRef = React.useRef(false);
   const feedClock = React.useRef(65900); // seconds since midnight ~ 18:18:20
@@ -63,7 +62,7 @@ function RawExplorer({ state, setState }) {
     const useCursor = reset ? 0 : cursor;
     const res = await XST.scan(pat != null ? pat : pattern, type != null ? type : typeFilter, useCursor);
     setScanBusy(false);
-    setOffline(res.offline);
+    onOfflineChange(res.offline);
     setScanned(res.scanned); setMatched(res.matched);
     setCursor(res.cursor || 0);
     setKeys((prev) => reset ? res.keys : prev.concat(res.keys));
@@ -77,7 +76,7 @@ function RawExplorer({ state, setState }) {
     setSelectedKey(key); setRightTab('inspector'); setInspectBusy(true);
     const res = await XST.inspect(key);
     setInspectBusy(false);
-    setOffline((o) => res.offline || o);
+    onOfflineChange(res.offline || offline);
     setInspectData(res);
     go('selected');
   }
@@ -119,7 +118,7 @@ function RawExplorer({ state, setState }) {
   function forceLine(line) {
     if (!tierRef.current) { pushHistory({ kind: 'noperm', cmd: (line.split(/\s+/)[0] || '').toUpperCase(), required: XST.RAWCMD }); go('noperm'); return; }
     const r = RAWD.runCommandLocal(line, XST.RAWCMD, true);
-    pushHistory({ kind: 'forced', cmd: r.cmd, args: r.args, result: r.result });
+    pushHistory({ kind: 'forced', cmd: r.cmd, args: r.args, result: r.result, simulated: true });
     go('command');
   }
   async function runLine(line) {
@@ -128,7 +127,7 @@ function RawExplorer({ state, setState }) {
     setCmdBusy(true);
     const res = await XST.command(trimmed, { force: false });
     setCmdBusy(false);
-    setOffline((o) => res.offline || o);
+    onOfflineChange(res.offline || offline);
     if (res.empty) return;
     if (res.blocked) {
       pushHistory({ kind: 'blocked', cmd: res.cmd, reason: res.reason, required_tier: res.required_tier, onForce: () => forceLine(trimmed) });
@@ -137,7 +136,7 @@ function RawExplorer({ state, setState }) {
       pushHistory({ kind: 'unknown', cmd: res.cmd });
       go('command');
     } else {
-      pushHistory({ kind: 'result', cmd: res.cmd, args: res.args, result: res.result });
+      pushHistory({ kind: 'result', cmd: res.cmd, args: res.args, result: res.result, simulated: res.simulated });
       go('command');
     }
   }
@@ -210,7 +209,7 @@ function RawExplorer({ state, setState }) {
         <span style={{ color: 'var(--admin-accent)', display: 'flex' }}><RXI.terminal size={18} /></span>
         <h1 style={{ margin: 0, fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>Raw explorer</h1>
         <span style={{ whiteSpace: 'nowrap' }}><RXDot status={statusMap.status} label={statusMap.label} /></span>
-        {offline && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--admin-status-caution)', whiteSpace: 'nowrap' }} title="Backend unreachable — serving from seed">simulated</span>}
+        {offline && <SimulatedBadge />}
         <span style={{ marginLeft: 'auto', fontFamily: 'var(--admin-mono)', fontSize: 11, color: 'var(--admin-text-subtle)', whiteSpace: 'nowrap' }}>valkey 8.0 · db0 · db1 · db3</span>
       </div>
 

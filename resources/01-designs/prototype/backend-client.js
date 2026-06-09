@@ -195,7 +195,10 @@
     try { return JSON.parse(txt); } catch (e) { return null; }
   }
 
+  function isDemoMode() { return !!window.FAMILIA_DEMO_MODE; }
+
   async function request(envelope) {
+    if (isDemoMode()) throw new Error('demo_mode');
     var env = envelope || {};
     var plan = planRequest(env);
     if (!plan) throw new Error('unknown_action:' + env.action);
@@ -247,5 +250,5 @@
     throw new Error('http_' + res.status);
   }
 
-  window.familiaBackend = { request: request, setToken: setToken };
+  window.familiaBackend = { request: request, setToken: setToken, isDemoMode: isDemoMode };
 })();

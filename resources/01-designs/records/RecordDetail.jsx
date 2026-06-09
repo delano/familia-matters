@@ -47,7 +47,7 @@ function SchemaHint({ schema }) {
 }
 
 /* ── Encrypted field with gated reveal ────────────────────────────────────── */
-function EncryptedField({ field, custid, autoReveal }) {
+function EncryptedField({ field, custid, autoReveal, onOfflineChange }) {
   const RI = window.RICONS;
   const toast = RDtoast();
   const [stage, setStage] = React.useState('concealed'); // concealed | confirm | revealed
@@ -64,6 +64,7 @@ function EncryptedField({ field, custid, autoReveal }) {
     setPlaintext(res.plaintext);
     setAudit(res.audit);
     setStage('revealed');
+    onOfflineChange(res.offline);
     toast({ tone: 'preview', title: 'Reveal logged', detail: `records.reveal · actor admin_42 · ${field.name}${res.offline ? ' · simulated' : ''}`, mono: true });
   };
 
@@ -162,7 +163,7 @@ function SavePreview({ changes, onCancel, onApply, busy }) {
   );
 }
 
-function RecordDetail({ custid, intent, onBack }) {
+function RecordDetail({ custid, intent, onBack, offline, onOfflineChange }) {
   const RI = window.RICONS;
   const toast = RDtoast();
   const model = window.REC.CUSTOMER;
@@ -172,7 +173,7 @@ function RecordDetail({ custid, intent, onBack }) {
   React.useEffect(() => {
     setRecord(base);
     let alive = true;
-    window.RSTORE.read(custid).then((res) => { if (alive && res.record) setRecord(res.record); });
+    window.RSTORE.read(custid).then((res) => { if (alive) { if (res.record) setRecord(res.record); onOfflineChange(res.offline); } });
     return () => { alive = false; };
   }, [base, custid]);
 
@@ -201,6 +202,7 @@ function RecordDetail({ custid, intent, onBack }) {
     const res = await window.RSTORE.update(custid, changeObj);
     setRecord(res.record);
     setBusy(false); setEditing(false); setReviewing(false); setDraft({});
+    onOfflineChange(res.offline);
     toast({ tone: 'healthy', title: `Saved — ${changes.length} field${changes.length === 1 ? '' : 's'}`, detail: `records.update · atomic HSET · updated_at bumped${res.offline ? ' · simulated' : ''}`, mono: true });
   };
 
@@ -282,7 +284,7 @@ function RecordDetail({ custid, intent, onBack }) {
               if (f.category === 'encrypted') {
                 return (
                   <FieldRow key={f.name} field={f} editing={editing}>
-                    <EncryptedField field={f} custid={record.custid} autoReveal={intent === 'reveal'} />
+                    <EncryptedField field={f} custid={record.custid} autoReveal={intent === 'reveal'} onOfflineChange={onOfflineChange} />
                   </FieldRow>
                 );
               }
@@ -339,6 +341,7 @@ function RecordDetail({ custid, intent, onBack }) {
               { label: 'Instances timeline', value: '−1', tone: 'caution' },
             ]}
             onApply={() => window.RSTORE.destroy(custid).then((res) => {
+              onOfflineChange(res.offline);
               toast({ tone: 'broken', title: `Destroyed ${record.custid}`, detail: `records.destroy · timeline −1 → ${res.countFast.toLocaleString()}${res.offline ? ' · simulated' : ''}`, mono: true });
               setTimeout(() => { setDestroy(false); onBack(); }, 600);
             })}

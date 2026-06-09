@@ -10,7 +10,8 @@ const MFL = window.MFLOWS;
 const ST = window.MSTORE;
 const MIGD = window.MIG;
 
-function MigrationCockpit({ state, setState }) {
+function MigrationCockpit({ state, setState, offline, onOfflineChange }) {
+  const setOffline = onOfflineChange;
   const [data, setData] = React.useState({ applied: ST.mirror.applied.slice(), pending: ST.mirror.pending.slice(), drift: ST.mirror.drift.slice() });
   const [focus, setFocus] = React.useState(null);        // focused migration object
   const [plan, setPlan] = React.useState(null);
@@ -19,7 +20,6 @@ function MigrationCockpit({ state, setState }) {
   const [partialInfo, setPartialInfo] = React.useState(null);
   const [ack, setAck] = React.useState(false);
   const [busy, setBusy] = React.useState(null);
-  const [offline, setOffline] = React.useState(false);
   const [noPerm, setNoPerm] = React.useState(null);
   const [draftedFor, setDraftedFor] = React.useState(null);
 
@@ -222,7 +222,7 @@ function MigrationCockpit({ state, setState }) {
               <span style={{ color: 'var(--admin-accent)', display: 'flex' }}><MCI.layers size={18} /></span>
               <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em' }}>Migrations</h1>
               <MCDot status={statusMap.status} label={statusMap.label} />
-              {offline && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--admin-status-caution)' }} title="Backend unreachable — serving from seed">simulated</span>}
+              {offline && <SimulatedBadge />}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
               <Summary label="Applied" value={appliedCount} tone="healthy" />

@@ -67,6 +67,8 @@ function MStateSwitcher({ value, onChange }) {
 function MigrationsApp() {
   const [dark, setDark] = React.useState(true);
   const [cockpitState, setCockpitState] = React.useState('status');
+  const [offline, setOffline] = React.useState(false);
+  const demo = !!(window.familiaBackend && window.familiaBackend.isDemoMode());
 
   React.useEffect(() => {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
@@ -89,7 +91,7 @@ function MigrationsApp() {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: 'var(--admin-bg)', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100vh', background: 'var(--admin-bg)', overflow: 'hidden', boxShadow: demo ? 'inset 0 0 0 3px var(--admin-status-preview)' : offline ? 'inset 0 0 0 3px var(--admin-status-caution)' : 'none', transition: 'box-shadow 0.3s ease' }}>
       <MAppSidebar logo={<MWordmark />} items={navItems} activeId="migrations" onNavigate={onNav} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
         <MAppTopbar
@@ -106,7 +108,7 @@ function MigrationsApp() {
           )}
         />
         <main style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-          <window.MigrationCockpit state={cockpitState} setState={setCockpitState} />
+          <window.MigrationCockpit state={cockpitState} setState={setCockpitState} offline={offline} onOfflineChange={setOffline} />
         </main>
       </div>
     </div>

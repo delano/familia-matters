@@ -235,8 +235,9 @@ function ctxFor(scenario) {
   return { tier, params };
 }
 
-function IntegrityConsole({ state, setState }) {
+function IntegrityConsole({ state, setState, offline, onOfflineChange }) {
   const D = window.ADMIN;
+  const setOffline = onOfflineChange || (() => {});
 
   const [report, setReport] = React.useState(() => normalizeReport(D.HEALTH));
   const [preview, setPreview] = React.useState(null);     // { writes }
@@ -245,7 +246,6 @@ function IntegrityConsole({ state, setState }) {
   const [refusedData, setRefusedData] = React.useState(null);
   const [authData, setAuthData] = React.useState(null);
   const [busy, setBusy] = React.useState(null);           // 'check' | 'repair' | 'apply' | null
-  const [offline, setOffline] = React.useState(false);
 
   const scrollRef = React.useRef(null);
   const sectionRefs = React.useRef({});
@@ -473,7 +473,7 @@ function IntegrityConsole({ state, setState }) {
               <span style={{ color: 'var(--admin-accent)', display: 'flex' }}><IIcons.shield size={18} /></span>
               <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em' }}>Integrity console</h1>
               <ICDot status={statusMap.status} label={statusMap.label} />
-              {offline && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--admin-status-caution)' }} title="Backend unreachable — serving from seed">simulated</span>}
+              {offline && <SimulatedBadge />}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
