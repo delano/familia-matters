@@ -28,12 +28,13 @@ _s, headers, _b = otto_call('/admin/api/stream/commands', admin_token)
 [headers['cache-control'], headers['x-accel-buffering']]
 #=> ["no-cache", "no"]
 
-## stream_commands requires role:admin: a non-admin role is denied (302 redirect,
-## the non-json deny shape) -- and this returns immediately (no stream opened)
+## stream_commands requires role:admin: a VALID non-admin token is an authorization
+## denial -> 403 (authz denials are 403 even on this non-json route; an unauthenticated
+## request still 302s, see below) -- and this returns immediately (no stream opened)
 reset_and_seed!
 status, _h, _b = otto_call('/admin/api/stream/commands', custom_token(perms: [], role: 'user'))
 [status, (200..299).cover?(status)]
-#=> [302, false]
+#=> [403, false]
 
 ## a missing bearer token on the stream route is also denied
 reset_and_seed!

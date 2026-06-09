@@ -45,6 +45,7 @@ module Familia
         return if env == 'development'
 
         require 'familia/admin/auth'
+        require 'familia/admin/passphrase'
 
         paseto = ENV.fetch('FAMILIA_ADMIN_PASETO_KEY', Familia::Admin::Auth::DEV_PASETO_KEY)
         enc    = ENV.fetch('FAMILIA_ADMIN_ENCRYPTION_KEY', ENCRYPTION_DEV_KEY)
@@ -52,12 +53,18 @@ module Familia
         offenders = []
         offenders << 'FAMILIA_ADMIN_PASETO_KEY (dev-default PASETO key)' if paseto == Familia::Admin::Auth::DEV_PASETO_KEY
         offenders << 'FAMILIA_ADMIN_ENCRYPTION_KEY (dev-default encryption key)' if enc == ENCRYPTION_DEV_KEY
+        # The shared-passphrase login is the browser auth gate; booting non-dev
+        # without a reference would leave it permanently reject-all (auth-ui-spec:
+        # "passphrase reference absent -> reject all"). Fail closed at boot instead
+        # of presenting an unusable login, mirroring the dev-default key guard.
+        offenders << 'FAMILIA_ADMIN_PASSPHRASE (no shared login passphrase set)' unless Familia::Admin::Passphrase.configured?
         return if offenders.empty?
 
         raise <<~MSG.strip
-          Refusing to boot in #{env.inspect}: dev-default key material is in use for #{offenders.join(' and ')}.
-          These defaults are public in the source; using them outside development is unsafe.
-          Set FAMILIA_ADMIN_PASETO_KEY and/or FAMILIA_ADMIN_ENCRYPTION_KEY to real secrets, or run with RACK_ENV=development.
+          Refusing to boot in #{env.inspect}: unsafe/missing auth secret(s) for #{offenders.join(' and ')}.
+          The dev-default keys are public in the source; the login passphrase gates browser access.
+          Set FAMILIA_ADMIN_PASETO_KEY, FAMILIA_ADMIN_ENCRYPTION_KEY, and FAMILIA_ADMIN_PASSPHRASE to real
+          secrets, or run with RACK_ENV=development.
         MSG
       end
 
@@ -90,6 +97,9 @@ module Familia
         require 'familia/admin/api'
         require 'familia/admin/audit_log'
         require 'familia/admin/auth'
+        require 'familia/admin/passphrase'
+        require 'familia/admin/rate_limit'
+        require 'familia/admin/sessions'
       end
     end
   end
