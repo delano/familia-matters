@@ -1,0 +1,430 @@
+/*
+ * src/styles.css — self-contained styles for the admin auth UI.
+ *
+ * Copies the needed --otto-* / --admin-* tokens from
+ * resources/00-assets/design-tokens.css (the app does NOT load resources/ CSS).
+ *
+ * Theme orientation is INVERTED relative to design-tokens.css on purpose: this
+ * tool is dark-theme-first, so the dark surface values live in the base :root
+ * and LIGHT is the peer under :root[data-theme="light"]. The app pins
+ * data-theme="dark" on <html> (index.html), so it boots dark regardless of the
+ * OS color-scheme preference; the prefers-color-scheme block below only applies
+ * its light surfaces when dark is NOT pinned. Otto pink is reserved for the
+ * primary action only.
+ */
+
+:root {
+  /* ---- Otto brand (accent only; never a background wash) ---- */
+  --otto-primary: #e879f9; /* Otto pink: primary action */
+  --otto-primary-dark: #c026d3;
+  --otto-primary-light: #f3e8ff;
+  --otto-secondary: #a855f7;
+  --otto-accent: #fb923c;
+
+  /* ---- Semantic ---- */
+  --otto-success: #059669;
+  --otto-warning: #d97706;
+  --otto-error: #dc2626;
+  --otto-info: #0284c7;
+
+  /* ---- Neutral ---- */
+  --otto-gray-50: #f9fafb;
+  --otto-gray-100: #f3f4f6;
+  --otto-gray-200: #e5e7eb;
+  --otto-gray-300: #d1d5db;
+  --otto-gray-400: #9ca3af;
+  --otto-gray-500: #6b7280;
+  --otto-gray-600: #4b5563;
+  --otto-gray-700: #374151;
+  --otto-gray-800: #1f2937;
+  --otto-gray-900: #111827;
+
+  /* ---- Type ---- */
+  --otto-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+    sans-serif;
+  --otto-font-mono: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+
+  /* ---- Spacing / radius / shadow / motion ---- */
+  --otto-space-xs: 0.25rem;
+  --otto-space-sm: 0.5rem;
+  --otto-space-md: 1rem;
+  --otto-space-lg: 1.5rem;
+  --otto-space-xl: 2rem;
+  --otto-space-2xl: 3rem;
+  --otto-radius-sm: 4px;
+  --otto-radius-md: 8px;
+  --otto-radius-lg: 12px;
+  --otto-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --otto-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --otto-transition: all 0.2s ease;
+  --otto-transition-fast: all 0.1s ease;
+
+  /* ---- Admin density ---- */
+  --admin-font-size-base: 13px;
+  --admin-font-size-sm: 12px;
+  --admin-line-height: 1.45;
+  --admin-row-height: 32px;
+  --admin-gutter: var(--otto-space-sm);
+  --admin-section-gap: var(--otto-space-lg);
+  --admin-radius: var(--otto-radius-md);
+  --admin-mono: var(--otto-font-mono);
+
+  /* ---- Surfaces: DARK by default (this is a dark-first tool) ---- */
+  --admin-bg: var(--otto-gray-900);
+  --admin-surface: var(--otto-gray-800);
+  --admin-surface-raised: #232f43; /* ~gray-800 lifted, for cards over surface */
+  --admin-text: var(--otto-gray-100);
+  --admin-text-muted: var(--otto-gray-400);
+  --admin-border-color: var(--otto-gray-700);
+  --admin-border: 1px solid var(--otto-gray-700);
+
+  /* ---- Status semantics ---- */
+  --admin-status-healthy: var(--otto-success);
+  --admin-status-caution: var(--otto-warning);
+  --admin-status-broken: var(--otto-error);
+  --admin-status-preview: var(--otto-info);
+  --admin-status-neutral: var(--otto-gray-400);
+
+  /* ---- Brand accent, applied sparingly ---- */
+  --admin-accent: var(--otto-primary);
+  --admin-accent-hover: var(--otto-primary-dark);
+  /* readable text on the pink accent fill */
+  --admin-on-accent: var(--otto-gray-900);
+}
+
+/* ---- Light theme: the peer. Opt in with <html data-theme="light">. ---- */
+:root[data-theme='light'] {
+  --admin-bg: #ffffff;
+  --admin-surface: var(--otto-gray-50);
+  --admin-surface-raised: #ffffff;
+  --admin-text: var(--otto-gray-900);
+  --admin-text-muted: var(--otto-gray-500);
+  --admin-border-color: var(--otto-gray-200);
+  --admin-border: 1px solid var(--otto-gray-200);
+  --admin-on-accent: #ffffff;
+}
+
+/* A light box can also be requested via the OS, unless dark is pinned. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --admin-bg: #ffffff;
+    --admin-surface: var(--otto-gray-50);
+    --admin-surface-raised: #ffffff;
+    --admin-text: var(--otto-gray-900);
+    --admin-text-muted: var(--otto-gray-500);
+    --admin-border-color: var(--otto-gray-200);
+    --admin-border: 1px solid var(--otto-gray-200);
+    --admin-on-accent: #ffffff;
+  }
+}
+
+/* =========================================================================
+ * Base
+ * ====================================================================== */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font-family: var(--otto-font-family);
+  font-size: var(--admin-font-size-base);
+  line-height: var(--admin-line-height);
+  -webkit-font-smoothing: antialiased;
+}
+
+.admin-root {
+  min-height: 100vh;
+}
+
+/* =========================================================================
+ * Bootstrap (indeterminate session-query state)
+ * ====================================================================== */
+.bootstrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--otto-space-md);
+  min-height: 100vh;
+  color: var(--admin-text-muted);
+  font-size: var(--admin-font-size-sm);
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--admin-border-color);
+  border-top-color: var(--admin-text-muted);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =========================================================================
+ * Login screen + card (shared by full screen and reauth overlay)
+ * ====================================================================== */
+.login-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--otto-space-lg);
+}
+
+.login-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--otto-space-md);
+  width: 100%;
+  max-width: 320px;
+  padding: var(--otto-space-lg);
+  background: var(--admin-surface);
+  border: var(--admin-border);
+  border-radius: var(--admin-radius);
+  box-shadow: var(--otto-shadow-md);
+}
+
+.login-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--otto-space-xs);
+}
+
+.login-label {
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-text-muted);
+}
+
+.login-input {
+  height: var(--admin-row-height);
+  padding: 0 var(--otto-space-sm);
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  font-family: var(--admin-mono);
+  font-size: var(--admin-font-size-base);
+}
+
+.login-input:focus {
+  outline: none;
+  border-color: var(--admin-accent);
+  box-shadow: 0 0 0 2px rgba(232, 121, 249, 0.25);
+}
+
+.login-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* The one sanctioned use of the pink accent: the primary action. */
+.login-submit {
+  height: var(--admin-row-height);
+  padding: 0 var(--otto-space-md);
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
+  border: none;
+  border-radius: var(--otto-radius-sm);
+  font-size: var(--admin-font-size-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--otto-transition-fast);
+}
+
+.login-submit:hover:not(:disabled) {
+  background: var(--admin-accent-hover);
+}
+
+.login-submit:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.login-error {
+  margin: 0;
+  padding: var(--otto-space-sm);
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-status-broken);
+  border-left: 2px solid var(--admin-status-broken);
+  background: rgba(220, 38, 38, 0.12);
+}
+
+.login-locked {
+  margin: 0;
+  padding: var(--otto-space-sm);
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-status-caution);
+  border-left: 2px solid var(--admin-status-caution);
+  background: rgba(217, 119, 6, 0.12);
+}
+
+/* =========================================================================
+ * App shell + session bar
+ * ====================================================================== */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.session-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-lg);
+  padding: 0 var(--otto-space-md);
+  min-height: 44px;
+  background: var(--admin-surface);
+  border-bottom: var(--admin-border);
+}
+
+.wordmark {
+  font-weight: 700;
+  font-size: var(--admin-font-size-base);
+  white-space: nowrap;
+}
+
+.session-claims {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--otto-space-lg);
+  margin: 0;
+  flex: 1;
+}
+
+.claim {
+  display: flex;
+  align-items: baseline;
+  gap: var(--otto-space-xs);
+  margin: 0;
+}
+
+.claim-label {
+  margin: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--admin-text-muted);
+}
+
+.claim-value {
+  margin: 0;
+  font-family: var(--admin-mono);
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-text);
+}
+
+.permissions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--otto-space-xs);
+}
+
+.permission-chip {
+  padding: 1px var(--otto-space-xs);
+  font-family: var(--admin-mono);
+  font-size: 11px;
+  color: var(--admin-text);
+  background: var(--admin-bg);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+}
+
+.permission-chip--empty {
+  color: var(--admin-text-muted);
+  font-style: italic;
+}
+
+.expiry {
+  white-space: nowrap;
+}
+
+.logout-btn {
+  padding: var(--otto-space-xs) var(--otto-space-sm);
+  background: transparent;
+  color: var(--admin-text);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  font-size: var(--admin-font-size-sm);
+  cursor: pointer;
+  transition: var(--otto-transition-fast);
+}
+
+.logout-btn:hover {
+  border-color: var(--admin-text-muted);
+}
+
+.app-content {
+  flex: 1;
+  padding: var(--otto-space-md);
+}
+
+/* =========================================================================
+ * Permission notice (403; stays authenticated)
+ * ====================================================================== */
+.permission-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--otto-space-md);
+  padding: var(--otto-space-sm) var(--otto-space-md);
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-status-caution);
+  background: rgba(217, 119, 6, 0.12);
+  border-bottom: 1px solid var(--admin-status-caution);
+}
+
+.notice-dismiss {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  line-height: 1;
+  background: transparent;
+  color: inherit;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* =========================================================================
+ * Re-auth overlay (modal above the still-mounted app)
+ * ====================================================================== */
+.reauth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--otto-space-lg);
+}
+
+.reauth-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.reauth-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 320px;
+}
