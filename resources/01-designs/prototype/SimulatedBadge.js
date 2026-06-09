@@ -1,34 +1,21 @@
-/* prototype/SimulatedBadge.js — shared "simulated" indicator for offline state.
- *
- * Renders a caution-toned badge that signals seed/simulated data.  Uses the
- * design-system Badge when available (tone="caution", uppercase, mono);
- * falls back to a styled <span> with identical visual treatment.
- *
- * Exposed as:  window.SimulatedBadge
- *
- * Props
- * ─────────────────────────────────────────────────────────────────────────────
- *   title   {string}  Tooltip text.  Default: "Backend unreachable — serving from seed"
- *   style   {object}  Merge into the root element's inline styles.
- *   ...rest           Forwarded to the underlying element (data-*, aria-*, etc.).
- *
- * Usage (inside a text/babel JSX file):
- *   {offline && <SimulatedBadge />}
- *   {offline && <SimulatedBadge title="Custom tooltip" />}
- */
+/* prototype/SimulatedBadge.js — shared simulated/demo indicator. window.SimulatedBadge */
 (function () {
   'use strict';
 
   var DS = window.FamiliaAdminDesignSystem_a9098d;
   var DSBadge = DS && DS.Badge;
 
-  var DEFAULT_TITLE = 'Backend unreachable — serving from seed';
+  var DEMO_TITLE = 'Demo mode — serving seed data (FAMILIA_DEMO_MODE)';
+  var OFFLINE_TITLE = 'Backend unreachable — serving from seed';
 
   function SimulatedBadge(props) {
-    var title = props.title !== undefined ? props.title : DEFAULT_TITLE;
+    var demo = !!window.FAMILIA_DEMO_MODE;
+    var tone = demo ? 'preview' : 'caution';
+    var label = demo ? 'demo mode' : 'simulated';
+    var defaultTitle = demo ? DEMO_TITLE : OFFLINE_TITLE;
+    var title = props.title !== undefined ? props.title : defaultTitle;
     var style = props.style || null;
 
-    // Strip known props; forward everything else.
     var rest = {};
     var skip = { title: 1, style: 1, children: 1 };
     for (var k in props) {
@@ -38,12 +25,12 @@
     if (DSBadge) {
       return React.createElement(
         DSBadge,
-        Object.assign({ tone: 'caution', uppercase: true, mono: true, title: title, style: style }, rest),
-        'simulated'
+        Object.assign({ tone: tone, uppercase: true, mono: true, title: title, style: style }, rest),
+        label
       );
     }
 
-    // Fallback: plain span matching the design-system Badge visual.
+    var statusVar = demo ? 'preview' : 'caution';
     return React.createElement(
       'span',
       Object.assign({
@@ -59,13 +46,13 @@
           letterSpacing: 'var(--admin-tracking-label, 0.06em)',
           textTransform: 'uppercase',
           borderRadius: 'var(--admin-radius-sm)',
-          background: 'var(--admin-status-caution-bg)',
-          color: 'var(--admin-status-caution)',
+          background: 'var(--admin-status-' + statusVar + '-bg)',
+          color: 'var(--admin-status-' + statusVar + ')',
           border: '1px solid transparent',
           whiteSpace: 'nowrap'
         }, style)
       }, rest),
-      'simulated'
+      label
     );
   }
 

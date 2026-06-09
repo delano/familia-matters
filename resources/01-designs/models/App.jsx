@@ -68,6 +68,8 @@ function ModelsApp() {
   const [dark, setDark] = React.useState(true);
   const [descriptor, setDescriptor] = React.useState(() => ({ ...seedDescriptor(), offline: false }));
   const [counts, setCounts] = React.useState(() => seedCounts());
+  const [offline, setOffline] = React.useState(false);
+  const demo = !!(window.familiaBackend && window.familiaBackend.isDemoMode());
 
   const [refreshing, setRefreshing] = React.useState(false);
   const [selected, setSelected] = React.useState(null); // model key or null
@@ -78,6 +80,7 @@ function ModelsApp() {
     setRefreshing(true);
     const d = await loadDescriptor();
     setDescriptor(d);
+    setOffline(d.offline);
     const cc = await refreshCustomerCount();
     if (cc != null) setCounts((m) => ({ ...m, customer: cc }));
     setRefreshing(false);
@@ -109,7 +112,7 @@ function ModelsApp() {
 
   return (
     <MAppToastHost>
-      <div style={{ display: 'flex', height: '100vh', background: 'var(--admin-bg)', overflow: 'hidden', boxShadow: descriptor.offline ? 'inset 0 0 0 3px var(--admin-status-caution)' : 'none', transition: 'box-shadow 0.3s ease' }}>
+      <div style={{ display: 'flex', height: '100vh', background: 'var(--admin-bg)', overflow: 'hidden', boxShadow: demo ? 'inset 0 0 0 3px var(--admin-status-preview)' : offline ? 'inset 0 0 0 3px var(--admin-status-caution)' : 'none', transition: 'box-shadow 0.3s ease' }}>
         <MAppSidebar logo={<MWordmark />} items={navItems} activeId="models" onNavigate={onNav} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
           <MAppTopbar
@@ -127,7 +130,7 @@ function ModelsApp() {
           <main style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             {selectedModel
               ? <window.ModelDetail model={selectedModel} count={counts[selectedModel.model]} onBack={back} onNav={detailNav} />
-              : <window.ModelList models={models} version={descriptor.version} generatedAt={descriptor.generatedAt} counts={counts} offline={descriptor.offline} onOpen={open} onRefresh={load} refreshing={refreshing} />}
+              : <window.ModelList models={models} version={descriptor.version} generatedAt={descriptor.generatedAt} counts={counts} offline={offline} onOpen={open} onRefresh={load} refreshing={refreshing} />}
           </main>
         </div>
       </div>

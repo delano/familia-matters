@@ -70,6 +70,7 @@ function App() {
   const [dark, setDark] = React.useState(true);
   const [consoleState, setConsoleState] = React.useState('issues');
   const [offline, setOffline] = React.useState(false);
+  const demo = !!(window.familiaBackend && window.familiaBackend.isDemoMode());
 
   React.useEffect(() => {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
@@ -86,7 +87,7 @@ function App() {
   ];
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: 'var(--admin-bg)', overflow: 'hidden', boxShadow: offline ? 'inset 0 0 0 3px var(--admin-status-caution)' : 'none', transition: 'box-shadow 0.3s ease' }}>
+    <div style={{ display: 'flex', height: '100vh', background: 'var(--admin-bg)', overflow: 'hidden', boxShadow: demo ? 'inset 0 0 0 3px var(--admin-status-preview)' : offline ? 'inset 0 0 0 3px var(--admin-status-caution)' : 'none', transition: 'box-shadow 0.3s ease' }}>
       <AppSidebar logo={<Wordmark />} items={navItems} activeId="integrity" onNavigate={(id) => { if (id === 'records') appNavTo('records'); else if (id === 'models') appNavTo('models'); else if (id === 'migrations') appNavTo('migrations'); else if (id === 'raw') appNavTo('explorer'); }} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
         <AppTopbar
