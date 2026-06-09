@@ -90,9 +90,11 @@ prototype UI, whose same-origin fetches authenticate via the cookie.** Work land
    vs strategy Bearer-regex divergence, persistent lock if the first `EXPIRE` fails,
    `FAIL_LIMIT=0`/`WINDOW=0` accepted, limiter fails open on Valkey outage,
    no `__Host-` prefix, otto `samesite:` dead code).
-2. **The findings JSON is still tmp-only** (`tmp/0609-auth-security-verification-
-   findings.json`) — commit or fold into an issue/ADR before it's lost like this
-   document nearly was.
+2. **The findings JSON is committed** — *[resolved 2026-06-09 evening]*: now at
+   `docs/0609-auth-security-verification-findings.json` (was tmp-only), alongside
+   the orchestration handoff (`docs/0608-familia-admin-orchestration-handoff.md`,
+   archived verbatim). The local-only artifacts that remain are
+   `tmp/0608-phase3-security-report.md` and the plan file the handoff references.
 3. **Prototype has no logout control** (logout = `DELETE /admin/api/auth/session`
    or cookie expiry).
 4. **Real admin screens in src/** — the gateway hands off to the prototype; porting
@@ -163,7 +165,8 @@ Q6 dev TLS → Secure except dev-loopback + passphrase boot guard.
   the prototypes — see the evening session update.]*
 - **Security-verification findings: RECORDED, backend-branch follow-up (not folded
   into the frontend).** The adversarial workflow returned **FAIL** — full output in
-  `tmp/0609-auth-security-verification-findings.json`. All findings are **backend**:
+  `tmp/0609-auth-security-verification-findings.json` *(now committed:
+  `docs/0609-auth-security-verification-findings.json`)*. All findings are **backend**:
   - **HIGH** — the login rate limiter keys on `@req.ip` (`sessions.rb:133`), which
     Rack 3.2.6 derives from a spoofable `X-Forwarded-For` under the default
     `trusted_proxies` (loopback + all RFC1918). An in-scope internal attacker rotates
