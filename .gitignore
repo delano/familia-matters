@@ -1,2 +1,4 @@
 .DS_Store
 **/.DS_Store
+node_modules/
+resources/01-designs/dist/
