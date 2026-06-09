@@ -32,7 +32,7 @@ GET    /admin/api/models/:model/records/:id              Admin::API#read_record 
 PUT    /admin/api/models/:model/records/:id              Admin::API#update_record   response=json auth=role:admin csrf=exempt
 DELETE /admin/api/models/:model/records/:id              Admin::API#destroy_record  response=json auth=role:admin csrf=exempt
 
-# Reveal one encrypted field. Elevated + audited. Returns plaintext once.
+# Reveal one encrypted field. Elevated + audited. Returns plaintext (re-revealable; each call audited).
 POST   /admin/api/models/:model/records/:id/reveal/:field  Admin::API#reveal_field  response=json auth=permission:reveal_secrets csrf=exempt
 
 # ============================================================

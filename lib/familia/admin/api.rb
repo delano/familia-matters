@@ -23,6 +23,12 @@ module Admin
     PAGE_DEFAULT = 50
     PAGE_MAX     = 500
 
+    # Upper bound on the number of elements run_command returns for an Array/Hash
+    # result. The raw explorer is permission-gated, but an unbounded read
+    # (LRANGE 0 -1 over a huge list, HGETALL of a giant hash) is a memory DoS
+    # primitive; cap it and flag truncation, mirroring typed_value_preview.
+    RUN_COMMAND_RESULT_MAX = 1000
+
     # run_command allowlist. Read-only commands only. Anything not here is denied
     # unless the route granted permission:raw_command AND the request passes
     # force=true -- and even then the HARD_DENY set below stays blocked.
@@ -139,7 +145,19 @@ module Admin
       rec = safe { klass.find_by_identifier(param(:id)) }
       return not_found('record') unless rec
       fields = permitted_fields(klass, body_fields)
+      # The URL :id already identifies the record. The body must not be able to
+      # rewrite the identifier field (it would redirect the HMSET onto another
+      # record's key and corrupt identity/indexes) nor forge created_at (the
+      # server owns it, exactly as create does). Drop both before persisting.
+      idf = safe { klass.identifier_field }
+      fields.delete(idf.to_sym) if idf.is_a?(Symbol) || idf.is_a?(String)
+      fields.delete(:created_at)
       return bad_request('no fields given') if fields.empty?
+
+      # Reject a unique-index field change (e.g. moving this record onto another's
+      # email) that would collide with a DIFFERENT record. Mirrors create's
+      # uniqueness contract; without it the write silently hijacks the index.
+      return json({ error: 'record_exists' }, status: 409) if unique_index_conflict(klass, fields, param(:id))
 
       # Server re-stamps updated_at on every update; created_at is left intact.
       bump_updated = Array(safe { klass.persistent_fields }).include?(:updated_at)
@@ -168,7 +186,9 @@ module Admin
     end
 
     # POST /models/:model/records/:id/reveal/:field
-    # Elevated + audited. Returns plaintext exactly once.
+    # Elevated (permission:reveal_secrets) and audited. Returns the plaintext;
+    # the field is re-revealable (reloaded from the store), and every call is
+    # independently audited.
     def reveal_field
       klass = resolve_model! or return not_found('model')
       field = param(:field).to_sym
@@ -189,7 +209,7 @@ module Admin
       klass = resolve_model! or return not_found('model')
       rec = safe { klass.find_by_identifier(param(:id)) }
       return not_found('record') unless rec
-      coll = safe { rec.send(param(:collection)) }
+      coll = collection_for(klass, rec)
       return not_found('collection') unless coll
       offset, limit = page_params
       members = Array(safe { coll.lazy.drop(offset).first(limit) })
@@ -204,7 +224,7 @@ module Admin
       klass = resolve_model! or return not_found('model')
       rec = safe { klass.find_by_identifier(param(:id)) }
       return not_found('record') unless rec
-      coll = safe { rec.send(param(:collection)) }
+      coll = collection_for(klass, rec)
       return not_found('collection') unless coll
 
       body = body_json
@@ -374,6 +394,11 @@ module Admin
       if (mapped = map_key_to_model(key))
         out[:model] = mapped[:model]
         out[:id]    = mapped[:id]
+        # The raw hgetall preview would otherwise expose the at-rest encrypted
+        # value, bypassing serialize()'s [CONCEALED] mask, on a role:admin (NOT
+        # permission:reveal_secrets) route. Redact encrypted-category fields so
+        # the raw path matches the structured path's confidentiality contract.
+        mask_encrypted_fields!(out[:value], mapped[:model]) if ktype == 'hash' && out[:value].is_a?(Hash)
       end
       json(out)
     end
@@ -419,8 +444,20 @@ module Admin
           return bad_request("command failed: #{e.message}")
         end
 
+      # Bound an oversized collection result so an allowlisted read cannot be
+      # turned into a memory DoS (LRANGE 0 -1, HGETALL of a huge hash). Scalars
+      # pass through untouched.
+      truncated = false
+      if result.is_a?(Array) && result.size > RUN_COMMAND_RESULT_MAX
+        result = result.first(RUN_COMMAND_RESULT_MAX)
+        truncated = true
+      elsif result.is_a?(Hash) && result.size > RUN_COMMAND_RESULT_MAX
+        result = result.first(RUN_COMMAND_RESULT_MAX).to_h
+        truncated = true
+      end
+
       audit!(:run_command, cmd: cmd, args: args, forced: force)
-      json({ cmd: cmd, args: args, result: result, simulated: false, forced: force })
+      json({ cmd: cmd, args: args, result: result, simulated: false, forced: force, truncated: truncated })
     end
 
     # ----- live streams (Rack 3 streaming bodies) -------------------------
@@ -560,6 +597,20 @@ module Admin
       writable
     end
 
+    # Resolve the :collection path segment to a record's DataType, but ONLY if
+    # it names a declared INSTANCE-level relation. The segment is attacker
+    # controlled and was previously sent straight to rec.send, letting a path
+    # like .../records/:id/destroy! invoke any instance method (delete!, clear,
+    # save). Allowlisting against related_fields confines it to real collections;
+    # class-level related fields (the instances timeline, unique-index zsets) are
+    # excluded on purpose so the index/timeline cannot be tampered through here.
+    def collection_for(klass, rec)
+      name = param(:collection).to_s
+      allowed = Array(safe { klass.related_fields&.keys }).map(&:to_s)
+      return nil unless allowed.include?(name)
+      safe { rec.send(name) }
+    end
+
     # Dispatch one allowlisted collection op to its native DataType method.
     def dispatch_collection_op(coll, op, args)
       case op
@@ -588,6 +639,21 @@ module Admin
         return { model: klass.config_name, id: id } if id && !id.empty?
       end
       nil
+    end
+
+    # Redact encrypted-category fields in a raw hash preview so the raw explorer
+    # honors the same [CONCEALED] contract serialize() enforces. hgetall returns
+    # string keys; the at-rest value is ciphertext, but exposing it through a
+    # role:admin (not permission:reveal_secrets) route is the inconsistency we
+    # close here.
+    def mask_encrypted_fields!(hash, model_name)
+      klass = safe { Familia.member_by_config_name(model_name) } || safe { Familia.resolve_class(model_name) }
+      return unless klass
+      Array(safe { klass.persistent_fields }).each do |f|
+        ft = safe { klass.field_types[f] }
+        next unless ft && ft.category == :encrypted
+        [f.to_s, f.to_sym].each { |k| hash[k] = '[CONCEALED]' if hash.key?(k) }
+      end
     end
 
     # A small typed preview of a key's value, bounded so we never dump huge keys.
@@ -666,6 +732,21 @@ module Admin
 
     def identifier_of(rec)
       safe { rec.identifier } || safe { rec.send(rec.class.identifier_field) }
+    end
+
+    # True when one of the changed fields is a UNIQUE index whose new value
+    # already resolves to a DIFFERENT record -- i.e. the update would hijack
+    # another record's unique-index slot. Enumerates the same descriptors the
+    # query path uses. Returns the offending descriptor (truthy) or nil.
+    def unique_index_conflict(klass, fields, id)
+      return nil unless Familia.respond_to?(:index_descriptors)
+      Array(safe { Familia.index_descriptors(owner: klass) }).find do |d|
+        next false unless safe { d.unique? }
+        f = safe { d.field }
+        next false unless f && fields.key?(f.to_sym)
+        other = safe { klass.public_send("find_by_#{f}", fields[f.to_sym]) }
+        other && identifier_of(other).to_s != id.to_s
+      end
     end
 
     def indexed_descriptor(klass, name)

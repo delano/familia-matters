@@ -90,7 +90,10 @@ module Familia
         data = JSON.parse(message)
 
         exp = data['exp']
-        return nil if exp && Time.now.to_i >= exp.to_i
+        # Require an expiry: a token carrying no exp claim must never validate
+        # (defense-in-depth; Auth.mint always sets one).
+        return nil unless exp
+        return nil if Time.now.to_i >= exp.to_i
 
         Claims.new(
           sub: data['sub'],
