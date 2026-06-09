@@ -21,10 +21,13 @@
  * to completion, each `data: {json}` line is parsed, and the Promise resolves
  * with the ARRAY of events (callers animate the array themselves).
  *
- * Auth: a PASETO bearer token is read fresh per request from
- * window.FAMILIA_ADMIN_TOKEN (falling back to localStorage 'familia_admin_token')
- * and sent as `Authorization: Bearer <token>`. The client-only envelope `tier`
- * is never sent to the server. window.familiaBackend.setToken(t) overrides it.
+ * Auth: the HttpOnly session cookie minted by /login rides along on every
+ * same-origin fetch automatically — this client never reads, stores, or sends a
+ * token (the old window.FAMILIA_ADMIN_TOKEN / localStorage Bearer path is the
+ * auth spec's named Rejected Alternative and is gone). A 401 means no valid
+ * session: the top window is sent to /login?return_to=<here> to (re)authenticate.
+ * A 403 means the session lacks a permission: the gated UI states render in
+ * place. The client-only envelope `tier` is never sent to the server.
  */
 (function () {
   // ── Base path: same-origin by default; overridable for embedding ───────────
@@ -33,20 +36,17 @@
     return typeof b === 'string' ? b : '';
   }
 
-  // ── Auth token: window var wins, else localStorage, read fresh per request ──
-  var tokenOverride = null;
-  function currentToken() {
-    if (tokenOverride != null) return tokenOverride;
-    if (window.FAMILIA_ADMIN_TOKEN != null) return window.FAMILIA_ADMIN_TOKEN;
-    try { return window.localStorage.getItem('familia_admin_token'); }
-    catch (e) { return null; }
-  }
-  function setToken(t) {
-    tokenOverride = (t == null ? null : String(t));
+  // ── 401 -> the login gateway, preserving the operator's location ────────────
+  // Screens run in iframes inside the shell, so navigate the TOP window (same
+  // origin); return_to brings the operator straight back after login.
+  function redirectToLogin() {
     try {
-      if (t == null) window.localStorage.removeItem('familia_admin_token');
-      else window.localStorage.setItem('familia_admin_token', String(t));
-    } catch (e) {}
+      var top = window.top || window;
+      var here = String(top.location.pathname || '/') + String(top.location.search || '');
+      top.location.assign('/login?return_to=' + enc(here));
+    } catch (e) {
+      try { window.location.assign('/login'); } catch (e2) {}
+    }
   }
 
   // ── required_tier for the elevated actions; default role:admin otherwise ────
@@ -162,8 +162,6 @@
 
   function buildHeaders(plan) {
     var h = {};
-    var token = currentToken();
-    if (token) h['Authorization'] = 'Bearer ' + token;
     if (plan.stream) h['Accept'] = 'text/event-stream';
     else h['Accept'] = 'application/json';
     if (plan.body !== undefined) h['Content-Type'] = 'application/json';
@@ -226,13 +224,20 @@
         var body = await res.text();
         return parseSSE(body);
       }
+      if (res.status === 401) redirectToLogin();
       return { error: 'forbidden', required_tier: requiredTier('integrity.repair') };
     }
 
-    // 401/403 → parse the body first. A real JSON error code (command_blocked,
-    // scan_required, or any {error:...}) is resolved verbatim (Bug #5); only a
-    // generic/empty/unparseable auth failure synthesizes the forbidden envelope.
-    if (res.status === 401 || res.status === 403) {
+    // 401 = no valid session (absent/expired cookie): send the operator to the
+    // login gateway, and resolve a stable shape so the UI renders calmly while
+    // the navigation lands. 403 = authorization denial: stay in place — a real
+    // JSON error code (command_blocked, …) resolves verbatim (Bug #5); only a
+    // generic/empty body synthesizes the forbidden envelope.
+    if (res.status === 401) {
+      redirectToLogin();
+      return { error: 'forbidden', required_tier: requiredTier(env.action) };
+    }
+    if (res.status === 403) {
       var authBody = await parseJsonSafe(res);
       if (authBody && typeof authBody === 'object' && authBody.error) return authBody;
       return { error: 'forbidden', required_tier: requiredTier(env.action) };
@@ -250,5 +255,5 @@
     throw new Error('http_' + res.status);
   }
 
-  window.familiaBackend = { request: request, setToken: setToken, isDemoMode: isDemoMode };
+  window.familiaBackend = { request: request, isDemoMode: isDemoMode };
 })();

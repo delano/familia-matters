@@ -4,7 +4,14 @@
 // shells:
 //   bootstrapping   -> indeterminate spinner (GET /session in flight)
 //   unauthenticated -> the full-screen <Login>
-//   authenticated   -> the app shell (SessionBar + protected content)
+//   authenticated   -> handoff to ?return_to= (the gateway flow), or the app
+//                      shell (SessionBar + protected content) on a direct visit
+//
+// GATEWAY MODE: the server gate (rack_app.rb) sends unauthenticated browsers to
+// /login?return_to=<original path>. When that parameter is present, a freshly
+// authenticated session navigates straight back to it — the prototype UI at the
+// web root — instead of rendering the shell. The HttpOnly session cookie rides
+// along on the prototype's same-origin fetches, so no token ever changes hands.
 //
 // The authenticated subtree is rendered IDENTICALLY whether or not the reauth
 // overlay is active: the overlay is only APPENDED on top. That keeps the app
@@ -12,15 +19,30 @@
 // is the whole point of criterion 6 — the operator's location survives.
 
 import type React from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { useAuth } from './auth/AuthProvider'
+import { handoffTarget } from './auth/returnTo'
 import { Login } from './components/Login'
 import { PermissionNotice } from './components/PermissionNotice'
 import { ReauthOverlay } from './components/ReauthOverlay'
 import { SessionBar } from './components/SessionBar'
 
-export default function App(): React.JSX.Element {
+interface AppProps {
+  /** Location search string carrying return_to; defaults to the real URL. */
+  search?: string
+  /** Navigation effect for the handoff; defaults to location.replace. */
+  navigate?(url: string): void
+}
+
+function defaultNavigate(url: string): void {
+  // replace(), not assign(): the login page must not remain in history, or
+  // Back from the prototype would bounce through an already-satisfied login.
+  window.location.replace(url)
+}
+
+export default function App(props: AppProps = {}): React.JSX.Element {
+  const { search = window.location.search, navigate = defaultNavigate } = props
   const { state, login, logout, call, dismissNotice } = useAuth()
 
   if (state.status === 'bootstrapping') {
@@ -36,7 +58,12 @@ export default function App(): React.JSX.Element {
     return <Login variant="full" state={state.login} onSubmit={login} />
   }
 
-  // authenticated
+  // authenticated: gateway handoff when the gate provided a return_to.
+  const target = handoffTarget(search)
+  if (target !== null) {
+    return <Handoff target={target} navigate={navigate} />
+  }
+
   return (
     <AppShell
       claims={state.claims}
@@ -48,6 +75,27 @@ export default function App(): React.JSX.Element {
       reauthLogin={state.reauth.active ? state.reauth.login : undefined}
       onReauthSubmit={login}
     />
+  )
+}
+
+interface HandoffProps {
+  target: string
+  navigate(url: string): void
+}
+
+/** Splash shown while the freshly authenticated browser navigates back to the app. */
+function Handoff(props: HandoffProps): React.JSX.Element {
+  const { target, navigate } = props
+
+  useEffect(() => {
+    navigate(target)
+  }, [target, navigate])
+
+  return (
+    <div className="bootstrap" data-testid="handoff">
+      <span className="spinner" aria-hidden="true" />
+      <span>Signed in — opening admin…</span>
+    </div>
   )
 }
 

@@ -8,6 +8,9 @@ import react from '@vitejs/plugin-react'
 // credentials:'include'. The proxy only matters for `vite dev`; in production
 // the build is served same-origin by the backend.
 export default defineConfig({
+  // Served by the Ruby app under /login (rack_app.rb login_app): assets must
+  // resolve against that prefix in both the build and the dev server.
+  base: '/login/',
   plugins: [react()],
   server: {
     proxy: {

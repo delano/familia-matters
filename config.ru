@@ -6,15 +6,17 @@
 #   * a real Familia backend (Valkey at 127.0.0.1:6379) with encrypted fields,
 #   * the Otto API + PASETO auth strategies mounted under /admin/api and /_mcp,
 #   * the CSRF OriginGuard in front of state-changing routes,
-#   * static serving of the design assets (resources/01-designs) at the web root.
+#   * the login SPA (vite build -> dist/) served under /login,
+#   * the design assets (resources/01-designs) at the web root, gated behind a
+#     valid session cookie (unauthenticated browsers redirect to /login).
 #
 # The HTTP stack is assembled by Familia::Admin::RackApp.build so this server and
 # the contract suite (try/test_helper.rb) share an identical app.
 #
-# Boot:  bundle exec rackup            (or: bundle exec puma)
-# Seed:  bundle exec rake db:seed
-# Token: bundle exec rake auth:token   (admin)  /  auth:token:reveal_only
-# Login: set FAMILIA_ADMIN_PASSPHRASE, then POST /admin/api/auth/login
+# Boot:   bundle exec rackup           (or: bundle exec puma)
+# Seed:   bundle exec rake db:seed
+# Login:  set FAMILIA_ADMIN_PASSPHRASE, npm run build, then open /  (-> /login)
+# Token:  bundle exec rake auth:token  (Bearer for curl/CI/MCP; browsers use /login)
 
 require 'rubygems'
 require 'bundler/setup'

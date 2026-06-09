@@ -1,15 +1,16 @@
 // backend-client.test.mjs
 //
-// Node test for the client-only adapter bugs (#5 and #6) that NO Ruby test can
-// reach -- they live entirely in backend-client.js's fetch-result handling.
+// Node test for the client-only adapter behavior that NO Ruby test can reach --
+// it lives entirely in backend-client.js's fetch-result handling: the verbatim
+// JSON-error pass-through (#5), the stream deny shapes (#6), and the cookie-era
+// auth handling (401 -> login gateway redirect, 403 stays in place, no token).
 //
 // Harness: the file is a browser IIFE that reads global `window` + global
-// `fetch` and assigns `window.familiaBackend`. We install an in-memory
-// localStorage shim and a per-test mock fetch, evaluate the file source via
-// `vm.runInThisContext`, then drive window.familiaBackend.request(envelope).
+// `fetch` and assigns `window.familiaBackend`. We install a location stub and a
+// per-test mock fetch, evaluate the file source via `vm.runInThisContext`, then
+// drive window.familiaBackend.request(envelope).
 //
 // Run: node resources/01-designs/prototype/backend-client.test.mjs
-// RED now (adapter unfixed). The fixer makes #5/#6 green.
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -20,27 +21,25 @@ import assert from 'node:assert/strict';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SRC = readFileSync(join(__dirname, 'backend-client.js'), 'utf8');
 
-// ── in-memory localStorage shim ──────────────────────────────────────────────
-function makeStorage() {
-  const m = new Map();
-  return {
-    getItem: (k) => (m.has(k) ? m.get(k) : null),
-    setItem: (k, v) => void m.set(k, String(v)),
-    removeItem: (k) => void m.delete(k),
-  };
-}
-
 // Load a FRESH backend bound to a given mock fetch. Each call rebuilds window so
-// the IIFE re-runs against the supplied fetch and a clean token.
+// the IIFE re-runs against the supplied fetch. Auth is the HttpOnly session
+// cookie (the browser attaches it; this client never sees a token), so the
+// window carries no token — only a location stub recording the 401-triggered
+// navigations to the login gateway.
 function loadBackend(mockFetch) {
+  const navigations = [];
   const win = {
-    localStorage: makeStorage(),
-    FAMILIA_ADMIN_TOKEN: 'test-token',
     FAMILIA_ADMIN_API_BASE: '',
+    location: {
+      pathname: '/',
+      search: '?screen=records',
+      assign: (url) => void navigations.push(url),
+    },
   };
   globalThis.window = win;
   globalThis.fetch = mockFetch;
   vm.runInThisContext(SRC, { filename: 'backend-client.js' });
+  win.familiaBackend.__navigations = navigations;
   return win.familiaBackend;
 }
 
@@ -96,14 +95,45 @@ await test('#5 403 command_blocked body resolves verbatim (not forbidden)', asyn
   assert.equal(out.required_tier, 'permission:raw_command');
 });
 
-// Generic-auth regression: a 401 with an empty/unparseable body still resolves
-// the generic forbidden envelope. This stays GREEN across the fix.
-await test('generic-auth: 401 empty body resolves forbidden envelope', async () => {
+// ─────────────────────────────────────────────────────────────────────────────
+// Cookie-session era: 401 = no valid session -> navigate the top window to the
+// login gateway (preserving location via return_to) AND resolve a stable shape
+// so the UI renders calmly while the navigation lands. 403 = authorization
+// denial -> stay in place. No token is ever read or sent.
+// ─────────────────────────────────────────────────────────────────────────────
+await test('401 redirects to /login with return_to and resolves forbidden', async () => {
   const fetchMock = mockFetchOnce(jsonResponse({ status: 401, ok: false, body: '' }));
   const backend = loadBackend(fetchMock);
   const out = await backend.request({ action: 'records.list', model: 'customer', params: {} });
   assert.equal(out.error, 'forbidden', `expected forbidden, got ${JSON.stringify(out)}`);
   assert.equal(out.required_tier, 'role:admin');
+  assert.deepEqual(backend.__navigations, ['/login?return_to=%2F%3Fscreen%3Drecords']);
+});
+
+await test('403 does NOT redirect (authorization denial renders in place)', async () => {
+  const fetchMock = mockFetchOnce(jsonResponse({ status: 403, ok: false, body: '' }));
+  const backend = loadBackend(fetchMock);
+  const out = await backend.request({ action: 'records.reveal', model: 'customer', id: 'x', field: 'f' });
+  assert.equal(out.error, 'forbidden');
+  assert.equal(out.required_tier, 'permission:reveal_secrets');
+  assert.deepEqual(backend.__navigations, []);
+});
+
+await test('no Authorization header is sent (the session cookie is the credential)', async () => {
+  const fetchMock = mockFetchOnce(jsonResponse({ status: 200, body: '[]' }));
+  const backend = loadBackend(fetchMock);
+  await backend.request({ action: 'records.list', model: 'customer', params: {} });
+  const headers = fetchMock.calls[0].init.headers || {};
+  assert.equal(headers.Authorization, undefined,
+    `no Authorization header expected, saw ${JSON.stringify(headers)}`);
+});
+
+await test('stream 401 also redirects to the login gateway', async () => {
+  const fetchMock = mockFetchOnce(jsonResponse({ status: 401, ok: false, body: '' }));
+  const backend = loadBackend(fetchMock);
+  const out = await backend.request({ action: 'integrity.repair', model: 'customer', params: { stream: true } });
+  assert.equal(out.error, 'forbidden');
+  assert.equal(backend.__navigations.length, 1);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
