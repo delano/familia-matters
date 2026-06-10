@@ -7,6 +7,7 @@ require 'rack'
 require 'rack/static'
 require 'rack/files'
 require 'rack/mime'
+require 'rack/request'
 require 'rack/utils'
 
 require 'familia/admin/auth'
@@ -151,7 +152,14 @@ module Familia
             assets.call(env.merge('PATH_INFO' => sub_path))
           else
             html = File.read(index_path)
-            [200, { 'content-type' => 'text/html', 'content-length' => html.bytesize.to_s }, [html]]
+            # no-store: the entry point references hashed asset names, so a
+            # cached copy goes stale on every rebuild (and this is a login page).
+            # The hashed assets themselves are immutable and safe to cache.
+            [200, {
+              'content-type' => 'text/html; charset=utf-8',
+              'cache-control' => 'no-store',
+              'content-length' => html.bytesize.to_s,
+            }, [html]]
           end
         end
       end

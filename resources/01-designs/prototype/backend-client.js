@@ -224,7 +224,13 @@
         var body = await res.text();
         return parseSSE(body);
       }
-      if (res.status === 401) redirectToLogin();
+      // 401, or the legacy 3xx/opaqueredirect deny shape redirect:'manual'
+      // surfaces (a redirect off the stream means "not authenticated", not a
+      // permission denial), sends the operator to the login gateway.
+      var streamAuthDenied = res.status === 401 ||
+        res.type === 'opaqueredirect' || res.status === 0 ||
+        (res.status >= 300 && res.status < 400);
+      if (streamAuthDenied) redirectToLogin();
       return { error: 'forbidden', required_tier: requiredTier('integrity.repair') };
     }
 

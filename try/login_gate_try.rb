@@ -97,6 +97,12 @@ res = LOGIN_SPA.get('/login')
 [res.status, res.body.include?('LOGIN-SPA')]
 #=> [200, true]
 
+## the entry point declares UTF-8 and is never cached -- it names hashed asset
+## files, so a cached copy goes stale on every rebuild (and it is a login page)
+res = LOGIN_SPA.get('/login')
+[res.headers['content-type'], res.headers['cache-control']]
+#=> ["text/html; charset=utf-8", "no-store"]
+
 ## hashed assets resolve under /login/assets/
 res = LOGIN_SPA.get('/login/assets/app.js')
 [res.status, res.body.include?('built')]

@@ -144,13 +144,16 @@ await test('stream 401 also redirects to the login gateway', async () => {
 // red->green one. RED now: a 302 has res.ok=false and no JSON error -> throws;
 // a non-event-stream 200 has res.ok=true -> parseSSE returns [] (not forbidden).
 // ─────────────────────────────────────────────────────────────────────────────
-await test('#6 stream 302 redirect resolves forbidden (not throw/empty)', async () => {
+await test('#6 stream 302 redirect resolves forbidden (not throw/empty) and heads to login', async () => {
   const fetchMock = mockFetchOnce(jsonResponse({ status: 302, ok: false, type: 'opaqueredirect', body: '' }));
   const backend = loadBackend(fetchMock);
   const out = await backend.request({ action: 'integrity.repair', model: 'customer', params: { stream: true } });
   assert.ok(out && !Array.isArray(out), `expected an object, got ${JSON.stringify(out)}`);
   assert.equal(out.error, 'forbidden', `expected forbidden, got ${JSON.stringify(out)}`);
   assert.equal(out.required_tier, 'permission:repair');
+  // A redirect off the stream is the legacy "not authenticated" deny shape ->
+  // the operator is sent to the login gateway, same as a 401.
+  assert.equal(backend.__navigations.length, 1);
 });
 
 await test('#6 stream non-event-stream 200 (html) resolves forbidden (not empty array)', async () => {
@@ -162,6 +165,8 @@ await test('#6 stream non-event-stream 200 (html) resolves forbidden (not empty 
   const out = await backend.request({ action: 'integrity.repair', model: 'customer', params: { stream: true } });
   assert.equal(out && out.error, 'forbidden',
     `expected forbidden for a non-event-stream stream response, got ${JSON.stringify(out)}`);
+  // A 2xx (however malformed) is not an auth denial: no login redirect.
+  assert.deepEqual(backend.__navigations, []);
 });
 
 await test('#6 stream fetch is issued with redirect:manual (after fix)', async () => {
