@@ -134,12 +134,15 @@ module AdminTestHarness
   # ip: sets BOTH REMOTE_ADDR (rate-limit key, client IP) and SERVER_NAME, because
   # Otto::Request#local? (which drives the loopback-conditional Secure cookie)
   # requires the server name to be a localhost name too — not the client IP alone.
-  def login(passphrase, ip: nil)
+  # xff: sets X-Forwarded-For, to exercise the rate-limit key's trust model (a
+  # spoofed value from an untrusted peer must NOT change the key).
+  def login(passphrase, ip: nil, xff: nil)
     headers = { 'CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json' }
     if ip
       headers['REMOTE_ADDR'] = ip
       headers['SERVER_NAME'] = ip
     end
+    headers['HTTP_X_FORWARDED_FOR'] = xff if xff
     post '/admin/api/auth/login', JSON.generate(passphrase: passphrase), headers
     parse_body
   end

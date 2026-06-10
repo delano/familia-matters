@@ -129,6 +129,20 @@ module Admin
       @req.respond_to?(:local?) ? !!@req.local? : %w[127.0.0.1 ::1].include?(@req.env['REMOTE_ADDR'])
     end
 
+    # The rate-limit key — must be an address the client cannot forge. `@req.ip`
+    # is Otto::Request#ip, which returns the raw TCP peer (REMOTE_ADDR) UNLESS the
+    # peer is in Otto's `security_config.trusted_proxies` — which defaults to
+    # EMPTY. So by default X-Forwarded-For is NOT consulted and the key is
+    # unspoofable. (Note: Otto does not override #ip but DOES override
+    # #trusted_proxy?, the predicate #ip uses to decide whether to read
+    # X-Forwarded-For; Rack's own RFC1918-trusting default filter is never called.
+    # This is why security finding 0609's "spoofable X-Forwarded-For" was a false
+    # positive — see docs/adr/0001 section 5.)
+    #
+    # Behind a reverse proxy, register the proxy via Otto's trusted_proxies so this
+    # (and IP-privacy masking) resolve the real client; otherwise every request
+    # keys on the proxy's IP. Do NOT add a parallel trusted-proxy config here —
+    # keep it the single Otto one to avoid divergence.
     def client_ip
       @req.respond_to?(:ip) && @req.ip ? @req.ip : (@req.env['REMOTE_ADDR'] || 'unknown')
     end
