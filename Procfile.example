@@ -33,4 +33,4 @@
 
 # valkey: valkey-server --port 6379
 backend: bundle exec rackup
-web: pnpm dev
+web: npm run dev
