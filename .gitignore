@@ -3,3 +3,5 @@
 node_modules/
 dist/
 resources/01-designs/dist/
+# Snapshot left by a default redis-server run from the repo root (try/ suite)
+dump.rdb
