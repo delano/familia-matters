@@ -66,6 +66,27 @@ and `docs/familia-admin-claude-design-handoff.md`.
 From Claude Design, based on the ui design doc and the integrity console spec. The full study and
 datasheets are in `docs/` as `docs/familia-admin-ui-design.md`.
 
+## Running locally
+
+Development is two processes plus Valkey/Redis on `127.0.0.1:6379`:
+
+```bash
+# terminal 1 — the Ruby backend (:9292)
+FAMILIA_ADMIN_PASSPHRASE='correct horse battery staple' bundle exec rackup
+
+# terminal 2 — the Vite dev server (proxies /admin/api to :9292)
+npm run dev
+```
+
+Or run both under one process manager: copy `Procfile.example` to `Procfile`
+(or `Procfile.dev`, both git-ignored) and start it with
+[overmind](https://github.com/DarthSim/overmind) or
+[hivemind](https://github.com/DarthSim/hivemind). The passphrase can live in a
+git-ignored `.env` file, which both managers load automatically. The comments
+in `Procfile.example` cover the gotchas — most importantly that an unset
+passphrase makes every login fail with a generic "Authentication failed" while
+the server otherwise boots and runs normally.
+
 ## Status
 
 The design study is complete and a high-fidelity, interactive prototype is built

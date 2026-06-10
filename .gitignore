@@ -3,5 +3,9 @@
 node_modules/
 dist/
 resources/01-designs/dist/
-# Snapshot left by a default redis-server run from the repo root (try/ suite)
+# Local dev process configs (copied from Procfile.example) and the .env the
+# process managers load — .env may hold FAMILIA_ADMIN_PASSPHRASE.
+Procfile
+Procfile.dev
+.env
 dump.rdb
