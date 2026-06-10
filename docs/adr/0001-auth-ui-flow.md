@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-06-09
 - **Context spec:** [`docs/familia-admin-auth-ui-spec.md`](../familia-admin-auth-ui-spec.md)
-- **Gap analysis:** [`tmp/0608-auth-ui-gap-analysis.md`](../../tmp/0608-auth-ui-gap-analysis.md)
+- **Gap analysis:** [`docs/0608-auth-ui-gap-analysis.md`](../0608-auth-ui-gap-analysis.md)
 
 ## Context
 

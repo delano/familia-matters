@@ -2,9 +2,9 @@
 
 source 'https://rubygems.org'
 
-# Otto 2.1.0 lives only as a path gem; the published gem is still 2.0.2 and
-# lacks the route-level auth wiring this app relies on.
-gem 'otto', path: '../otto'
+# Otto 2.2.0 (published 2026-06) carries the route-level auth wiring and the
+# strategy-level AuthorizationFailure -> 403 mapping the auth flow relies on.
+gem 'otto', '~> 2.2'
 
 # Familia 2.10.1 is published; fall back to the path checkout only on conflict.
 gem 'familia', '~> 2.10'

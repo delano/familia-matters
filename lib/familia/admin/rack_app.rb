@@ -5,7 +5,10 @@
 require 'otto'
 require 'rack'
 require 'rack/static'
+require 'rack/files'
 require 'rack/mime'
+require 'rack/request'
+require 'rack/utils'
 
 require 'familia/admin/auth'
 require 'familia/admin/origin_guard'
@@ -18,11 +21,19 @@ module Familia
     # test harness wired Otto by hand and never exercised the middleware; routing
     # the suite through #api_app closes that gap.
     #
+    # Browser entry flow: the built login SPA (Vite dist/) is served under /login,
+    # and the prototype design assets at the web root are gated behind a valid
+    # session cookie — an unauthenticated browser is redirected to
+    # /login?return_to=<original path>, and after login the SPA hands back to it.
+    # The API surface is NOT gated here (Otto's route auth owns it), so Bearer
+    # clients see 401/403 statuses, never a redirect.
+    #
     # Boot.setup! (Familia connection/encryption/models/admin code) is the caller's
     # responsibility and must run first; this module only wires HTTP.
     module RackApp
       ALLOWED_ORIGINS_ENV = 'FAMILIA_ADMIN_ALLOWED_ORIGINS'
       API_PREFIXES = ['/admin/api', '/_mcp'].freeze
+      LOGIN_PREFIX = '/login'
 
       module_function
 
@@ -32,6 +43,10 @@ module Familia
 
       def designs_dir(app_root)
         File.join(app_root, 'resources', '01-designs')
+      end
+
+      def dist_dir(app_root)
+        File.join(app_root, 'dist')
       end
 
       # A configured Otto instance: routes + PASETO strategies. Otto logs MCP
@@ -65,22 +80,86 @@ module Familia
       end
 
       # The full runnable app: state-changing CSRF guard in front of a path
-      # dispatch that routes /admin/api and /_mcp to Otto and everything else to
-      # the static design assets.
+      # dispatch that routes /admin/api and /_mcp to Otto, /login to the built
+      # login SPA, and everything else to the session-gated design assets.
       def build(app_root)
-        guard = api_app(otto(app_root))
-        dispatch(guard, static_app(designs_dir(app_root)))
+        dispatch(
+          api: api_app(otto(app_root)),
+          login: login_app(dist_dir(app_root)),
+          static: static_app(designs_dir(app_root)),
+        )
       end
 
       # Path-prefix dispatch WITHOUT rewriting PATH_INFO (Otto's routes are defined
-      # against the full '/admin/api/...' and '/_mcp' paths).
-      def dispatch(api, static)
+      # against the full '/admin/api/...' and '/_mcp' paths). Order matters: the
+      # API and /login are reachable without a session (Otto's route auth gates the
+      # API; /login must never redirect to itself); only the static designs sit
+      # behind the cookie gate.
+      def dispatch(api:, login:, static:)
         lambda do |env|
           path = env['PATH_INFO'].to_s
-          if API_PREFIXES.any? { |p| path == p || path.start_with?("#{p}/") }
+          if prefixed?(path, API_PREFIXES)
             api.call(env)
-          else
+          elsif prefixed?(path, [LOGIN_PREFIX])
+            login.call(env)
+          elsif session_authenticated?(env)
             static.call(env)
+          else
+            redirect_to_login(env)
+          end
+        end
+      end
+
+      def prefixed?(path, prefixes)
+        prefixes.any? { |p| path == p || path.start_with?("#{p}/") }
+      end
+
+      # Whether the request carries a session cookie holding a verifiable PASETO.
+      # Cookie-only by design: browsers never attach Authorization headers to
+      # page navigations, and Bearer clients only talk to the (ungated) API.
+      def session_authenticated?(env)
+        cookie = Rack::Request.new(env).cookies[Familia::Admin::Auth::SESSION_COOKIE]
+        !Familia::Admin::Auth.verify(cookie).nil?
+      end
+
+      # 302 to the login SPA, carrying the original path+query so the SPA can
+      # hand the operator straight back after authentication (the SPA sanitizes
+      # return_to to a same-origin path before navigating).
+      def redirect_to_login(env)
+        original = env['PATH_INFO'].to_s
+        query = env['QUERY_STRING'].to_s
+        original = "#{original}?#{query}" unless query.empty?
+        location = "#{LOGIN_PREFIX}?return_to=#{Rack::Utils.escape(original)}"
+        [302, { 'location' => location, 'content-length' => '0' }, []]
+      end
+
+      # The built login SPA (vite build -> dist/, base '/login/'): hashed assets
+      # under /login/assets, and the SPA's index.html for every other /login path.
+      # A missing build is an operator hint, not a crash — the API and (for an
+      # already-cookied browser) the designs still work without it.
+      def login_app(dist_dir)
+        index_path = File.join(dist_dir, 'index.html')
+        assets = Rack::Files.new(dist_dir)
+
+        lambda do |env|
+          unless File.file?(index_path)
+            body = "Login UI not built. Run: npm install && npm run build\n"
+            return [503, { 'content-type' => 'text/plain', 'content-length' => body.bytesize.to_s }, [body]]
+          end
+
+          sub_path = env['PATH_INFO'].to_s.delete_prefix(LOGIN_PREFIX)
+          if sub_path.start_with?('/assets/')
+            assets.call(env.merge('PATH_INFO' => sub_path))
+          else
+            html = File.read(index_path)
+            # no-store: the entry point references hashed asset names, so a
+            # cached copy goes stale on every rebuild (and this is a login page).
+            # The hashed assets themselves are immutable and safe to cache.
+            [200, {
+              'content-type' => 'text/html; charset=utf-8',
+              'cache-control' => 'no-store',
+              'content-length' => html.bytesize.to_s,
+            }, [html]]
           end
         end
       end
