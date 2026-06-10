@@ -20,6 +20,9 @@
 #     (The inner single quotes land in .env and keep a passphrase containing
 #     spaces intact — dotenv parsers strip them from the value.)
 #
+#     Passphrases shorter than 16 characters (Passphrase::MIN_LENGTH) warn at
+#     boot in development and refuse to boot in any other environment.
+#
 # Once both processes are up, open the Vite URL it prints (default
 # http://localhost:5173/login/) and enter the passphrase. The login POST goes
 # through Vite's /admin/api proxy to the Ruby server on :9292; if your backend
