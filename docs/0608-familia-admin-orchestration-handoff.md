@@ -5,7 +5,9 @@
 > `/login` gateway replaced the `window.FAMILIA_ADMIN_TOKEN` browser flow described
 > in "Run it". Current state: `docs/0608-auth-ui-gap-analysis.md` (evening update).
 > The security-verification findings referenced alongside this work are committed at
-> `docs/0609-auth-security-verification-findings.json`. Some referenced artifacts
+> `docs/0609-auth-security-verification-findings.json` and tracked as issues #9
+> (HIGH), #10 (MEDIUM), and #11 (LOWs) — fixes in progress, merging soon. Some
+> referenced artifacts
 > (`tmp/0608-phase3-security-report.md`, the plan file under `~/.claude/plans/`)
 > remain local-only.
 

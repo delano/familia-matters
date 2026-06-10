@@ -6,7 +6,9 @@
 > serves the src/ auth SPA and gates the prototype UI behind the session cookie —
 > the rake-token-paste flow is deleted. The spec's flow is operator-visible end to
 > end. See "## Session update — 2026-06-09 (evening)". **Open: the backend
-> security-verification findings (HIGH: spoofable rate-limit IP) — now on main.**
+> security-verification findings (HIGH: spoofable rate-limit IP) — now on main,
+> tracked as issues #9 (HIGH), #10 (MEDIUM), #11 (LOWs); fixes in progress,
+> merging soon.**
 >
 > Earlier strata below are preserved as history: the 2026-06-08 analysis ("~0%
 > built"), then the 2026-06-09 backend/frontend build updates.
@@ -83,7 +85,10 @@ prototype UI, whose same-origin fetches authenticate via the cookie.** Work land
 
 ### Still open (prioritized)
 
-1. **Backend security findings — now live on `main`, unchanged:** the **HIGH**
+1. **Backend security findings — IN PROGRESS, merging soon.** Tracked as GitHub
+   issues **#9** (HIGH), **#10** (MEDIUM), and **#11** (LOW hardening batch);
+   #9 and #11 touch the same files and are expected to land together. The
+   findings, for the record: the **HIGH**
    (login rate limiter keys on `@req.ip`, spoofable via `X-Forwarded-For` under
    default trusted proxies; zero `trusted_proxies`/`ip_filter` pinning anywhere),
    the **MEDIUM** (no passphrase strength floor at boot), and the LOWs (OriginGuard
