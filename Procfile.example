@@ -1,0 +1,36 @@
+# Procfile.example — development process manifest for overmind/hivemind.
+#
+# Usage:
+#   cp Procfile.example Procfile       # then: overmind start  (or: hivemind)
+#   cp Procfile.example Procfile.dev   # then: overmind start -f Procfile.dev
+#                                      #   (or: hivemind Procfile.dev)
+#
+# Prerequisites:
+#   - Valkey/Redis listening on 127.0.0.1:6379. If it isn't already running as
+#     a service, uncomment the `valkey` line below to let the process manager
+#     own it.
+#   - FAMILIA_ADMIN_PASSPHRASE must be set on the Ruby process. If it is unset,
+#     the server boots fine in development but rejects every login with the
+#     generic "Authentication failed" (the spec's deliberate
+#     reject-all-when-unset behavior). Overmind and hivemind both load a
+#     sibling `.env` file automatically, so the simplest setup is:
+#
+#       echo "FAMILIA_ADMIN_PASSPHRASE=correct horse battery staple" >> .env
+#
+#     (.env is read by the process manager, not the shell: no quoting needed.)
+#
+# Once both processes are up, open the Vite URL it prints (default
+# http://localhost:5173/login/) and enter the passphrase. The login POST goes
+# through Vite's /admin/api proxy to the Ruby server on :9292; if your backend
+# runs on a different port, also set FAMILIA_ADMIN_BACKEND=http://127.0.0.1:XXXX
+# in .env so the proxy targets it.
+#
+# Note: in dev you land on the session shell after login, not the prototype.
+# The post-login handoff to the prototype only fires when the URL carries
+# ?return_to=, which the Ruby gate appends in the served flow. To exercise the
+# full gateway flow, skip Vite: `npm run build`, then open
+# http://127.0.0.1:9292/ against the Ruby server alone.
+
+# valkey: valkey-server --port 6379
+backend: bundle exec rackup
+web: pnpm dev
