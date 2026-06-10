@@ -152,6 +152,49 @@ status, body = login(TEST_PASSPHRASE, ip: '203.0.113.50')
 [status, body['role'], Familia::Admin::RateLimit.current('203.0.113.50')]
 #=> [200, "admin", 0]
 
+## a TTL-less counter (first EXPIRE lost) is re-armed on the next failure — no permanent lock
+reset_and_seed!
+key = Familia::Admin::RateLimit.redis_key('203.0.113.77')
+Familia.dbclient.del(key)
+Familia.dbclient.incr(key) # simulate a counter whose first EXPIRE never landed
+ttl_before = Familia.dbclient.ttl(key)
+Familia::Admin::RateLimit.record_failure('203.0.113.77')
+[ttl_before, Familia.dbclient.ttl(key).positive?]
+#=> [-1, true]
+
+## FAIL_LIMIT=0 / WINDOW=0 are rejected like garbage: defaults apply, login stays possible
+ENV['FAMILIA_ADMIN_LOGIN_FAIL_LIMIT'] = '0'
+ENV['FAMILIA_ADMIN_LOGIN_WINDOW'] = '0'
+limits = [Familia::Admin::RateLimit.fail_limit, Familia::Admin::RateLimit.window_seconds]
+ENV.delete('FAMILIA_ADMIN_LOGIN_FAIL_LIMIT')
+ENV.delete('FAMILIA_ADMIN_LOGIN_WINDOW')
+limits
+#=> [5, 900]
+
+# ===========================================================================
+# RATE-LIMIT KEY IS NOT X-FORWARDED-FOR-SPOOFABLE (security finding 0609,
+# re-analysed as a FALSE POSITIVE — see docs/adr/0001 section 5). `@req.ip`
+# returns the TCP peer (REMOTE_ADDR) unless the peer is in Otto's
+# security_config.trusted_proxies, which defaults to EMPTY — so by default
+# X-Forwarded-For is never consulted. These tests pin that contract so it
+# cannot silently regress (e.g. a future change keying on a raw header).
+# ===========================================================================
+
+## by default, an internal peer cannot escape the lockout by rotating X-Forwarded-For
+reset_and_seed!
+clear_cookies
+5.times { |i| login('wrong', ip: '10.0.0.5', xff: "203.0.113.#{100 + i}") }
+status, body = login(TEST_PASSPHRASE, ip: '10.0.0.5', xff: '203.0.113.250')
+[status, body['error']]
+#=> [429, "locked"]
+
+## the limiter keys on the real peer (REMOTE_ADDR), never the untrusted X-Forwarded-For value
+reset_and_seed!
+clear_cookies
+login('wrong', ip: '10.0.0.9', xff: '198.51.100.77')
+[Familia::Admin::RateLimit.current('10.0.0.9'), Familia::Admin::RateLimit.current('198.51.100.77')]
+#=> [1, 0]
+
 # ===========================================================================
 # CSRF: a cookie makes csrf=exempt mutations cross-site reachable. SameSite +
 # the OriginGuard close that; Bearer clients are unaffected.
@@ -195,3 +238,15 @@ post '/admin/api/models/customer/records',
      auth_headers(admin_token).merge('HTTP_ORIGIN' => 'http://evil.example.com')
 [last_response.status, JSON.parse(last_response.body)['custid']]
 #=> [200, "bearer_x"]
+
+## an EMPTY 'Bearer ' header does not stand the guard down: the strategy would fall
+## back to the ambient cookie, so the Origin check must still apply (regex alignment)
+reset_and_seed!
+clear_cookies
+login(TEST_PASSPHRASE)
+post '/admin/api/models/customer/records',
+     JSON.generate(fields: { custid: 'csrf_eb', email: 'csrfeb@x.z' }),
+     cookie_headers(set_session_cookie_value, origin: 'http://evil.example.com')
+       .merge('HTTP_AUTHORIZATION' => 'Bearer ')
+[last_response.status, JSON.parse(last_response.body)['error']]
+#=> [403, "forbidden_origin"]

@@ -9,3 +9,4 @@ resources/01-designs/dist/
 Procfile
 Procfile.dev
 .env
+dump.rdb

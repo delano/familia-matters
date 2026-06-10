@@ -36,16 +36,20 @@ module Familia
       # dev-default key material. The dev defaults are public constants in this
       # source; booting production with them would let anyone mint admin tokens
       # or decrypt the encrypted fields. Development (no env / 'development')
-      # boots unchanged so the rake/rackup dev flow keeps working.
+      # boots unchanged so the rake/rackup dev flow keeps working — a weak
+      # passphrase only warns there.
       #
       # auth.rb owns DEV_PASETO_KEY but is only required in load_admin! (after
       # this guard), so require it here to resolve the constant.
       def guard_production_keys!
         env = ENV['RACK_ENV'] || ENV['APP_ENV'] || 'development'
-        return if env == 'development'
+        require 'familia/admin/passphrase'
+        if env == 'development'
+          warn_weak_dev_passphrase!
+          return
+        end
 
         require 'familia/admin/auth'
-        require 'familia/admin/passphrase'
 
         paseto = ENV.fetch('FAMILIA_ADMIN_PASETO_KEY', Familia::Admin::Auth::DEV_PASETO_KEY)
         enc    = ENV.fetch('FAMILIA_ADMIN_ENCRYPTION_KEY', ENCRYPTION_DEV_KEY)
@@ -57,15 +61,36 @@ module Familia
         # without a reference would leave it permanently reject-all (auth-ui-spec:
         # "passphrase reference absent -> reject all"). Fail closed at boot instead
         # of presenting an unusable login, mirroring the dev-default key guard.
-        offenders << 'FAMILIA_ADMIN_PASSPHRASE (no shared login passphrase set)' unless Familia::Admin::Passphrase.configured?
+        # A configured-but-short passphrase also refuses: the passphrase is the
+        # one online-guessable secret, and the length floor is the defense-in-depth
+        # that bounds brute force if the login rate limiter is bypassed or degraded.
+        if Familia::Admin::Passphrase.configured?
+          unless Familia::Admin::Passphrase.meets_length_floor?
+            offenders << "FAMILIA_ADMIN_PASSPHRASE (shorter than the #{Familia::Admin::Passphrase::MIN_LENGTH}-character minimum)"
+          end
+        else
+          offenders << 'FAMILIA_ADMIN_PASSPHRASE (no shared login passphrase set)'
+        end
         return if offenders.empty?
 
         raise <<~MSG.strip
           Refusing to boot in #{env.inspect}: unsafe/missing auth secret(s) for #{offenders.join(' and ')}.
-          The dev-default keys are public in the source; the login passphrase gates browser access.
-          Set FAMILIA_ADMIN_PASETO_KEY, FAMILIA_ADMIN_ENCRYPTION_KEY, and FAMILIA_ADMIN_PASSPHRASE to real
-          secrets, or run with RACK_ENV=development.
+          The dev-default keys are public in the source; the login passphrase gates browser access and
+          must be at least #{Familia::Admin::Passphrase::MIN_LENGTH} characters. Set FAMILIA_ADMIN_PASETO_KEY,
+          FAMILIA_ADMIN_ENCRYPTION_KEY, and FAMILIA_ADMIN_PASSPHRASE to real secrets, or run with
+          RACK_ENV=development.
         MSG
+      end
+
+      # Development is exempt from the strength floor (a throwaway dev passphrase
+      # must not block boot), but a quietly weak secret is how one drifts into
+      # production — surface it at boot instead.
+      def warn_weak_dev_passphrase!
+        return unless Familia::Admin::Passphrase.configured?
+        return if Familia::Admin::Passphrase.meets_length_floor?
+
+        warn "[familia-admin boot] FAMILIA_ADMIN_PASSPHRASE is shorter than " \
+             "#{Familia::Admin::Passphrase::MIN_LENGTH} characters; a non-development boot will refuse it."
       end
 
       def configure_connection!

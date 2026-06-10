@@ -35,6 +35,13 @@ regardless). The spec's FR literally specifies a constant-time comparison.
 **Seam:** `Familia::Admin::Passphrase#verify` is the only comparison site; swap its
 body for a digest verify if the threat model ever changes.
 
+**Strength floor:** `FAMILIA_ADMIN_PASSPHRASE` must be at least 16 characters
+(`Passphrase::MIN_LENGTH`). The fail-closed boot guard refuses a non-development
+boot with a shorter reference; development warns without failing. The passphrase
+is the one secret an attacker can guess *online*, so the floor is the
+defense-in-depth that bounds brute-force exposure if the login rate limiter is
+ever bypassed or degraded (issues #9/#10).
+
 ### 2. Logout & revocation — TTL-only, no denylist
 
 Logout clears the cookie. PASETO v2.local is stateless, so this ends the browser
@@ -95,6 +102,57 @@ All three are env-tunable (`FAMILIA_ADMIN_LOGIN_FAIL_LIMIT`,
 `FAMILIA_ADMIN_LOGIN_WINDOW`). Implemented in `Familia::Admin::RateLimit`, not Otto's
 Rack::Attack limiter (which is global/middleware-only, not per-endpoint).
 
+#### Client-IP trust for the rate-limit key
+
+Because the limiter is the *only* brute-force control on the shared passphrase, its
+key (`@req.ip`) must be an address the client cannot forge. `Otto::Request#ip` returns
+the **TCP peer** (`REMOTE_ADDR`) unless the peer is in Otto's
+`security_config.trusted_proxies`, which **defaults to empty** — so by default
+`X-Forwarded-For` is never consulted and the key is unspoofable.
+
+**Re-analysis of security finding 0609 (HIGH "spoofable X-Forwarded-For", and its
+linked MEDIUM "Valkey memory-amplification DoS") — both FALSE POSITIVES.** The review
+reasoned that `@req.ip` was spoofable because Rack's default trusted-proxy filter
+trusts all RFC1918 ranges. That filter is never consulted: `Otto::Request` does not
+override `#ip`, but it *does* override `#trusted_proxy?` — the predicate `#ip` uses to
+decide whether to read `X-Forwarded-For` — to consult Otto's `trusted_proxies` (empty
+by default). With nothing trusted, `#ip` returns `REMOTE_ADDR` and never reads the
+header. Verified end to end: even with Rack's stock RFC1918-trusting filter restored,
+a rotating `X-Forwarded-For` from a private peer keys every attempt on the same TCP
+peer and the lockout holds. With no attacker-driven key cardinality, the
+Valkey-amplification DoS does not arise either. Pinned by regression tests in
+`try/auth_try.rb`; the misleading mechanism is called out in a comment at
+`Sessions#client_ip` so a future reader doesn't repeat the false-positive analysis.
+
+**Deliberately NOT changed:** an earlier draft of this fix added a second, parallel
+trusted-proxy config for the rate-limit key. Rejected — Otto's single `trusted_proxies`
+already governs `@req.ip` *and* the IP-privacy masking consistently; a second knob
+would let the two diverge (a footgun) and reimplements logic Otto already provides.
+The key derivation stays on Otto's single config.
+
+**Operational note (a real, separate consideration):** deploy behind a reverse proxy
+and *not* registering it in Otto's `trusted_proxies` means every request keys on the
+proxy's address — one attacker's failures then lock out all operators, and legitimate
+per-client throttling is lost. Registering the proxy there makes `@req.ip` (and the
+IP-privacy masking) resolve the real client. (Otto's IP-privacy middleware masks a
+*public* peer to its /24; a public-IP proxy is handled once it is trusted, because the
+middleware then resolves and masks the real client into `REMOTE_ADDR`.)
+
+**Zero is rejected:** a `0` for either env var falls back to the default, exactly
+like a non-numeric value — `FAIL_LIMIT=0` would permanently disable login
+(`locked?` always true) and `WINDOW=0` would expire the counter immediately
+(limiter never accrues). The counter's window TTL is also re-asserted on every
+recorded failure when missing, so a transiently lost first `EXPIRE` cannot wedge a
+source into a permanent lock.
+
+**Degraded-mode posture — fail open:** every Valkey call in the limiter is
+rescued; during an outage `locked?` returns false and login stays available,
+unthrottled. Availability is deliberately preferred over lockout for a small
+trusted team on an internal network — the limiter is defense-in-depth on top of
+the passphrase strength floor (decision 1), not the sole control. The degraded
+path is logged (`[familia-admin rate_limit] degraded (fail-open): …`) so a dark
+limiter is observable rather than silent.
+
 ### 6. Development TLS posture — Secure on, except dev over loopback
 
 The cookie is always `Secure` except when `RACK_ENV=development` *and* the request is
@@ -102,7 +160,12 @@ loopback (`Otto::Request#local?`: localhost server name + local client IP).
 `HttpOnly` and `SameSite=Strict` are unconditional. The fail-closed boot guard is
 extended: a non-development boot now also refuses to start when
 `FAMILIA_ADMIN_PASSPHRASE` is unset (an unusable reject-all login is a
-misconfiguration, surfaced at boot rather than at first login attempt).
+misconfiguration, surfaced at boot rather than at first login attempt) or shorter
+than the strength floor (decision 1).
+
+**Deferred:** the `__Host-` cookie-name prefix. It mandates `Secure`, which this
+posture drops for dev-over-loopback; promote the cookie name once `Secure` is
+unconditional in production deployments.
 
 ## Login grant
 

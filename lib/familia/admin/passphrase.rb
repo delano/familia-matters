@@ -25,6 +25,13 @@ module Familia
     module Passphrase
       ENV_KEY = 'FAMILIA_ADMIN_PASSPHRASE'
 
+      # Minimum reference length enforced at boot outside development (see
+      # Boot.guard_production_keys! and ADR 0001 decision 1). The shared
+      # passphrase is the one secret an attacker can guess online, so a strength
+      # floor bounds brute-force exposure if the login rate limiter is ever
+      # bypassed or degraded.
+      MIN_LENGTH = 16
+
       module_function
 
       # The configured reference passphrase, or nil when unset/blank.
@@ -39,6 +46,14 @@ module Familia
       # @return [Boolean]
       def configured?
         !reference.nil?
+      end
+
+      # Whether the configured reference meets the boot-time strength floor.
+      # False when unset — absence is reported separately by the boot guard.
+      # @return [Boolean]
+      def meets_length_floor?
+        ref = reference
+        !ref.nil? && ref.length >= MIN_LENGTH
       end
 
       # Constant-time verification of a submitted passphrase against the reference.

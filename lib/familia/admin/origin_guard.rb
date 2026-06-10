@@ -5,6 +5,8 @@
 require 'rack/request'
 require 'uri'
 
+require 'familia/admin/auth'
+
 module Familia
   module Admin
     # CSRF defense for cookie-authenticated, state-changing admin requests.
@@ -20,7 +22,7 @@ module Familia
     #   * path under /admin/api (and /_mcp),
     #   * a state-changing method (POST/PUT/DELETE/PATCH),
     #   * the request carries the session cookie AND no `Authorization: Bearer`
-    #     header. Bearer-authenticated clients (curl/CI/MCP) are NOT CSRF-vulnerable
+    #     header carrying a token. Bearer clients (curl/CI/MCP) are NOT CSRF-vulnerable
     #     — CSRF rides ambient cookie credentials a browser attaches automatically,
     #     which a Bearer client never has — so they bypass the check and keep
     #     working unchanged.
@@ -60,9 +62,14 @@ module Familia
         GUARDED_PREFIXES.any? { |prefix| p == prefix || p.start_with?("#{prefix}/") }
       end
 
-      # Cookie present AND no Bearer header: the only CSRF-vulnerable shape.
+      # Cookie present AND no usable Bearer header: the only CSRF-vulnerable shape.
+      # Shares the auth strategy's pattern (token REQUIRED) so the guard only
+      # stands down when the strategy will actually consume the header. A laxer
+      # match here would let a malformed 'Bearer ' (empty token, e.g. injected by
+      # a misbehaving proxy) skip the Origin check while the strategy falls back
+      # to the ambient cookie — reaching the handler with no CSRF defense.
       def cookie_authenticated?(env)
-        return false if env['HTTP_AUTHORIZATION'].to_s =~ /\ABearer\s+/i
+        return false if env['HTTP_AUTHORIZATION'].to_s =~ Familia::Admin::Auth::BEARER_TOKEN_PATTERN
 
         cookie = Rack::Request.new(env).cookies[@cookie_name]
         !cookie.to_s.empty?
