@@ -95,6 +95,42 @@ All three are env-tunable (`FAMILIA_ADMIN_LOGIN_FAIL_LIMIT`,
 `FAMILIA_ADMIN_LOGIN_WINDOW`). Implemented in `Familia::Admin::RateLimit`, not Otto's
 Rack::Attack limiter (which is global/middleware-only, not per-endpoint).
 
+#### Client-IP trust for the rate-limit key
+
+Because the limiter is the *only* brute-force control on the shared passphrase, its
+key (`@req.ip`) must be an address the client cannot forge. `Otto::Request#ip` returns
+the **TCP peer** (`REMOTE_ADDR`) unless the peer is in Otto's
+`security_config.trusted_proxies`, which **defaults to empty** — so by default
+`X-Forwarded-For` is never consulted and the key is unspoofable.
+
+**Re-analysis of security finding 0609 (HIGH "spoofable X-Forwarded-For", and its
+linked MEDIUM "Valkey memory-amplification DoS") — both FALSE POSITIVES.** The review
+reasoned that `@req.ip` was spoofable because Rack's default trusted-proxy filter
+trusts all RFC1918 ranges. That filter is never consulted: `Otto::Request` does not
+override `#ip`, but it *does* override `#trusted_proxy?` — the predicate `#ip` uses to
+decide whether to read `X-Forwarded-For` — to consult Otto's `trusted_proxies` (empty
+by default). With nothing trusted, `#ip` returns `REMOTE_ADDR` and never reads the
+header. Verified end to end: even with Rack's stock RFC1918-trusting filter restored,
+a rotating `X-Forwarded-For` from a private peer keys every attempt on the same TCP
+peer and the lockout holds. With no attacker-driven key cardinality, the
+Valkey-amplification DoS does not arise either. Pinned by regression tests in
+`try/auth_try.rb`; the misleading mechanism is called out in a comment at
+`Sessions#client_ip` so a future reader doesn't repeat the false-positive analysis.
+
+**Deliberately NOT changed:** an earlier draft of this fix added a second, parallel
+trusted-proxy config for the rate-limit key. Rejected — Otto's single `trusted_proxies`
+already governs `@req.ip` *and* the IP-privacy masking consistently; a second knob
+would let the two diverge (a footgun) and reimplements logic Otto already provides.
+The key derivation stays on Otto's single config.
+
+**Operational note (a real, separate consideration):** deploy behind a reverse proxy
+and *not* registering it in Otto's `trusted_proxies` means every request keys on the
+proxy's address — one attacker's failures then lock out all operators, and legitimate
+per-client throttling is lost. Registering the proxy there makes `@req.ip` (and the
+IP-privacy masking) resolve the real client. (Otto's IP-privacy middleware masks a
+*public* peer to its /24; a public-IP proxy is handled once it is trusted, because the
+middleware then resolves and masks the real client into `REMOTE_ADDR`.)
+
 ### 6. Development TLS posture — Secure on, except dev over loopback
 
 The cookie is always `Secure` except when `RACK_ENV=development` *and* the request is
