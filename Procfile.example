@@ -15,9 +15,10 @@
 #     reject-all-when-unset behavior). Overmind and hivemind both load a
 #     sibling `.env` file automatically, so the simplest setup is:
 #
-#       echo "FAMILIA_ADMIN_PASSPHRASE=correct horse battery staple" >> .env
+#       echo "FAMILIA_ADMIN_PASSPHRASE='correct horse battery staple'" >> .env
 #
-#     (.env is read by the process manager, not the shell: no quoting needed.)
+#     (The inner single quotes land in .env and keep a passphrase containing
+#     spaces intact — dotenv parsers strip them from the value.)
 #
 # Once both processes are up, open the Vite URL it prints (default
 # http://localhost:5173/login/) and enter the passphrase. The login POST goes
