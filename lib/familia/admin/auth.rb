@@ -61,6 +61,13 @@ module Familia
       DEFAULT_ROLE = 'admin'
       DEFAULT_TTL  = 3_600
 
+      # The Authorization-header shape the strategy accepts: 'Bearer <token>' with
+      # a NON-EMPTY token. OriginGuard shares this pattern so it only stands down
+      # for a Bearer header the strategy will actually consume — a malformed
+      # 'Bearer ' (empty token) must not skip the Origin check while the strategy
+      # falls back to the ambient cookie (see origin_guard.rb).
+      BEARER_TOKEN_PATTERN = /\ABearer\s+(.+)\z/i
+
       # Name of the browser session cookie carrying the minted PASETO. Kept plain
       # (no `__Host-` prefix) because that prefix mandates Secure, which is dropped
       # for local development over loopback; promoting to `__Host-` is a prod
@@ -214,7 +221,7 @@ module Familia
 
         def bearer_token(env)
           header = env['HTTP_AUTHORIZATION'].to_s
-          return nil unless header =~ /\ABearer\s+(.+)\z/i
+          return nil unless header =~ BEARER_TOKEN_PATTERN
 
           Regexp.last_match(1).strip
         end

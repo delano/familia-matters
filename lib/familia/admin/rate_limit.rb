@@ -13,9 +13,15 @@ module Familia
     # env-tunable; document any change against the ADR.
     #
     # Mechanics: INCR a per-IP key, EXPIRE it to the window on first failure (so the
-    # window is a fixed window from the first failure). `locked?` is checked BEFORE
-    # the passphrase compare, so a locked source learns nothing about whether its
-    # guess would have worked.
+    # window is a fixed window from the first failure); later failures re-assert the
+    # TTL if it is missing, so a transiently lost EXPIRE cannot leave a counter that
+    # never expires. `locked?` is checked BEFORE the passphrase compare, so a locked
+    # source learns nothing about whether its guess would have worked.
+    #
+    # DEGRADED-MODE POSTURE (ADR 0001 decision 5): every Valkey call is wrapped in
+    # `safe{}`, so an outage degrades the limiter to fail-open — login stays
+    # available, unthrottled — rather than locking operators out. The degraded path
+    # is logged so it is observable.
     module RateLimit
       # Failed attempts within the window before a source is locked.
       FAIL_LIMIT_DEFAULT = 5
@@ -52,7 +58,17 @@ module Familia
       def record_failure(ip)
         key = redis_key(ip)
         n = safe { Familia.dbclient.incr(key) } || 0
-        safe { Familia.dbclient.expire(key, window_seconds) } if n == 1
+        return n unless n.positive?
+
+        # Arm the window on the first failure; on later failures re-assert it only
+        # when missing. INCR creates the key TTL-less, so if the first EXPIRE is
+        # lost to a transient error (swallowed by `safe`), a once-only arm would
+        # leave a counter that never expires — a permanent lock for that source.
+        # Re-arming only a TTL-less key (-1) keeps the window fixed from the first
+        # counted failure.
+        safe do
+          Familia.dbclient.expire(key, window_seconds) if n == 1 || Familia.dbclient.ttl(key) == -1
+        end
         n
       end
 
@@ -71,14 +87,21 @@ module Familia
         "familia_admin:login_fail:#{ip}"
       end
 
+      # Positive-integer env override; anything else (garbage, zero) falls back to
+      # the default. Zero is rejected like garbage because FAIL_LIMIT=0 makes
+      # `locked?` always true (login permanently disabled) and WINDOW=0 expires the
+      # counter immediately (limiter never accrues) — misconfigurations, not tunings.
       def int_env(name, default)
         v = ENV[name]
-        v && v.to_s.match?(/\A\d+\z/) ? v.to_i : default
+        v && v.to_s.match?(/\A\d+\z/) && v.to_i.positive? ? v.to_i : default
       end
 
+      # Valkey errors degrade to nil — the limiter fails OPEN (see module docs).
+      # Logged so an operator can tell "limiter dark" from "no failed logins".
       def safe
         yield
-      rescue StandardError
+      rescue StandardError => e
+        warn("[familia-admin rate_limit] degraded (fail-open): #{e.class}: #{e.message}")
         nil
       end
     end

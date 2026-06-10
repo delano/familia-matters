@@ -50,6 +50,10 @@ REAL_KEYS = {
 # Passphrase guard: real keys, so only the passphrase decides.
 @prod_realkeys_nopass = boot_exit('production', REAL_KEYS)
 @prod_realkeys_pass   = boot_exit('production', REAL_KEYS.merge('FAMILIA_ADMIN_PASSPHRASE' => 'a-real-shared-passphrase'))
+# Strength floor (issue #10): a configured-but-short passphrase must refuse in
+# production ('short' < Passphrase::MIN_LENGTH) but only warn in development.
+@prod_realkeys_shortpass = boot_exit('production', REAL_KEYS.merge('FAMILIA_ADMIN_PASSPHRASE' => 'short'))
+@dev_shortpass           = boot_exit('development', 'FAMILIA_ADMIN_PASSPHRASE' => 'short')
 
 ## BUG #7: production boot with dev-default keys must FAIL (nonzero exit)
 @prod_exit != 0
@@ -69,4 +73,12 @@ REAL_KEYS = {
 
 ## production with real keys AND a shared passphrase boots (guard satisfied)
 @prod_realkeys_pass
+#=> 0
+
+## production with a passphrase BELOW the strength floor fails closed (issue #10)
+@prod_realkeys_shortpass != 0
+#=> true
+
+## development with the same short passphrase boots (warn-only, never blocks dev)
+@dev_shortpass
 #=> 0
