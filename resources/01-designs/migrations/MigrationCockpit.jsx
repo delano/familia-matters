@@ -222,7 +222,6 @@ function MigrationCockpit({ state, setState, offline, onOfflineChange }) {
               <span style={{ color: 'var(--admin-accent)', display: 'flex' }}><MCI.layers size={18} /></span>
               <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em' }}>Migrations</h1>
               <MCDot status={statusMap.status} label={statusMap.label} />
-              {offline && <SimulatedBadge />}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
               <Summary label="Applied" value={appliedCount} tone="healthy" />

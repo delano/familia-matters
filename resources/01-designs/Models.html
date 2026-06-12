@@ -30,14 +30,8 @@
 <!-- Design system bundle (plain JS — exposes window.FamiliaAdminDesignSystem_a9098d) -->
 <script src="_ds/familia-admin-design-system-a9098df9-2c4f-4c60-b625-c5748eff9755/_ds_bundle.js"></script>
 
-<!-- Shared backend: seed + factory + client. Embedded → bridges to the shell's
-     single backend (one StateModel shared with records + integrity);
-     standalone → spins up a local instance. seed.js also provides the
-     descriptor fallback (window.FAMILIA_SEED.descriptor). -->
-<script src="prototype/seed.js"></script>
-<script src="prototype/backend.js"></script>
+<!-- Backend client: real HTTP against the admin API (same origin). -->
 <script src="prototype/backend-client.js"></script>
-<script src="prototype/SimulatedBadge.js"></script>
 </head>
 <body>
 <div id="root"></div>

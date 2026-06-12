@@ -209,7 +209,6 @@ function RawExplorer({ state, setState, offline, onOfflineChange }) {
         <span style={{ color: 'var(--admin-accent)', display: 'flex' }}><RXI.terminal size={18} /></span>
         <h1 style={{ margin: 0, fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>Raw explorer</h1>
         <span style={{ whiteSpace: 'nowrap' }}><RXDot status={statusMap.status} label={statusMap.label} /></span>
-        {offline && <SimulatedBadge />}
         <span style={{ marginLeft: 'auto', fontFamily: 'var(--admin-mono)', fontSize: 11, color: 'var(--admin-text-subtle)', whiteSpace: 'nowrap' }}>valkey 8.0 · db0 · db1 · db3</span>
       </div>
 
