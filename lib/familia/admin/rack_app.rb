@@ -49,15 +49,16 @@ module Familia
         File.join(app_root, 'dist')
       end
 
-      # A configured Otto instance: routes + PASETO strategies. Otto logs MCP
-      # route-load errors to stderr (Admin::MCP is unimplemented); silence that
-      # expected noise so server/test output stays clean.
+      # A configured Otto instance: routes + PASETO strategies. Route loading is
+      # deliberately UNSILENCED: every line in routes.txt must load cleanly, and
+      # any load error Otto logs is a real boot problem the operator must see.
+      # (The old stderr-silencing wrapper existed only to hide the load noise
+      # from since-removed unimplemented route stubs, and blanket-swallowed
+      # real boot errors.)
       def otto(app_root)
-        silence_stderr do
-          instance = Otto.new(routes_path(app_root))
-          Familia::Admin::Auth.register!(instance)
-          instance
-        end
+        instance = Otto.new(routes_path(app_root))
+        Familia::Admin::Auth.register!(instance)
+        instance
       end
 
       # Explicit Origin allowlist from the environment, or nil to default to
@@ -177,16 +178,6 @@ module Familia
         end.to_app
       end
 
-      def silence_stderr
-        prev = $stderr
-        $stderr = File.open(File::NULL, 'w')
-        begin
-          yield
-        ensure
-          $stderr.close
-          $stderr = prev
-        end
-      end
     end
   end
 end

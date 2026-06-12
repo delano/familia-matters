@@ -3,11 +3,11 @@
 # familia-admin :: Otto routes
 #
 # Plain-text routing for a model-aware Familia admin API. Otto turns each line
-# into an HTTP endpoint and, for MCP/TOOL verbs, a JSON-RPC 2.0 method at /_mcp.
+# into an HTTP endpoint.
 #
 # Per-route parameters used below:
 #   response=json        emit JSON (and JSON errors regardless of Accept header)
-#   csrf=exempt          token/MCP-authenticated mutations opt out of CSRF
+#   csrf=exempt          token-authenticated mutations opt out of CSRF
 #   auth=role:admin                requires the 'admin' role
 #   auth=permission:NAME           requires a specific permission (elevated tiers)
 #
@@ -82,14 +82,4 @@ POST   /admin/api/raw/command                             Admin::API#run_command
 # ============================================================
 # LIVE STREAMS  (Rack 3 streaming bodies / server-sent events)
 # ============================================================
-GET    /admin/api/stream/commands                         Admin::API#stream_commands auth=role:admin
 GET    /admin/api/stream/repair/:model                    Admin::API#stream_repair   auth=permission:repair
-
-# ============================================================
-# MCP  (same surface, agent-drivable, at POST /_mcp)
-#   MCP  = read-only resource     TOOL = executable action
-# ============================================================
-MCP    /models                                            Admin::MCP.list_models
-MCP    /integrity                                          Admin::MCP.health
-TOOL   /repair                                             Admin::MCP.repair
-TOOL   /run_migration                                      Admin::MCP.run_migration

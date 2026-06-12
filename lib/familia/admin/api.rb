@@ -32,9 +32,8 @@ module Admin
     # primitive; cap it and flag truncation, mirroring typed_value_preview.
     RUN_COMMAND_RESULT_MAX = 1000
 
-    # run_command allowlist. Read-only commands only. Anything not here is denied
-    # unless the route granted permission:raw_command AND the request passes
-    # force=true -- and even then the HARD_DENY set below stays blocked.
+    # run_command allowlist. Read-only commands only. Anything not here is
+    # denied outright (403 command_blocked); there is no override parameter.
     READ_ONLY_COMMANDS = %w[
       GET TYPE TTL PTTL SCAN HSCAN SSCAN ZSCAN HGETALL HGET HKEYS HVALS HLEN
       LRANGE LLEN ZRANGE ZREVRANGE ZCARD ZSCORE ZRANGEBYSCORE SMEMBERS SCARD
@@ -42,7 +41,7 @@ module Admin
       PING ECHO LINDEX HEXISTS ZRANK ZREVRANK ZCOUNT
     ].freeze
 
-    # Never executable, regardless of force/permission. Destructive or capable of
+    # Never executable, regardless of permission. Destructive or capable of
     # blocking/altering the server.
     HARD_DENY_COMMANDS = %w[
       KEYS FLUSHALL FLUSHDB CONFIG SHUTDOWN DEBUG SAVE BGSAVE BGREWRITEAOF
@@ -253,23 +252,28 @@ module Admin
 
     # GET /models/:model/index/:index?value=
     # Walks the records behind an index via IndexDescriptor#each_record. When the
-    # requested field has no queryable index and force is not truthy, returns the
-    # scan_required contract so the frontend's scan gate fires.
+    # requested field has no queryable index, returns the scan_required contract
+    # so the frontend's scan gate fires; forcing past the gate is an explicit
+    # error, because there is no scan backend. The old behavior fabricated
+    # {forced: true, records: []} -- an empty success an operator reads as
+    # "no matching records" -- which is a lie (T5).
     def query_index
       klass = resolve_model! or return not_found('model')
       name  = (param(:index) || param(:field)).to_s
-      force = truthy?(param(:force))
 
       desc = indexed_descriptor(klass, name)
       unless desc
+        if truthy?(param(:force))
+          return json({
+            error: 'scan_unavailable',
+            message: "no queryable index for '#{name}'; ad-hoc scans are not supported",
+          }, status: 400)
+        end
         return json({
           error: 'scan_required',
-          hint: 'add an index or pass force=true',
+          hint: 'add an index; ad-hoc scans are unavailable',
           estimated_rows: safe { klass.count } || 0,
-        }) unless force
-        # force=true on an unindexed field: best-effort empty result rather than
-        # a blocking KEYS scan. The explicit scan path is the raw explorer.
-        return json({ index: name, value: param(:value), forced: true, records: [] })
+        })
       end
 
       offset, limit = page_params
@@ -418,23 +422,24 @@ module Admin
       })
     end
 
-    # POST /raw/command  body: {cmd, args, force}
-    # THE DANGEROUS PATH. Read-only commands run freely. Anything else needs the
-    # route-granted permission:raw_command AND force=true; the HARD_DENY set stays
-    # blocked even then. Every executed command is audited.
+    # POST /raw/command  body: {cmd, args}
+    # THE DANGEROUS PATH. Read-only commands only; anything else is denied.
+    # There is NO escalation parameter: the old override body key was never
+    # consulted by the allowlist check, so echoing it back implied an
+    # escalation that did not exist -- removed end-to-end in T5 (request,
+    # audit entry, response). Every executed command is audited.
     def run_command
       body  = body_json
       cmd   = body['cmd'].to_s.strip.upcase
       args  = Array(body['args'])
-      force = truthy?(body['force'])
       return bad_request('cmd required') if cmd.empty?
 
       # READ-ONLY ONLY. Anything not in the read allowlist is hard-denied
-      # regardless of force or permission -- this closes the audit-log
-      # erasure/forgery and data-corruption paths through the raw explorer. force
-      # may only ever widen to more reads, and the allowlist already enumerates
-      # every permitted read, so there is no elevated write path. The deny
-      # returns BEFORE any audit so a blocked command leaves no trace it ran.
+      # regardless of permission -- this closes the audit-log erasure/forgery
+      # and data-corruption paths through the raw explorer. The allowlist
+      # already enumerates every permitted read, so there is no elevated write
+      # path. The deny returns BEFORE any audit so a blocked command leaves no
+      # trace it ran.
       allowed = READ_ONLY_COMMANDS.include?(cmd)
       unless allowed
         return json({ error: 'command_blocked', required_tier: 'permission:raw_command' }, status: 403)
@@ -459,62 +464,17 @@ module Admin
         truncated = true
       end
 
-      audit!(:run_command, cmd: cmd, args: args, forced: force)
-      json({ cmd: cmd, args: args, result: result, simulated: false, forced: force, truncated: truncated })
+      audit!(:run_command, cmd: cmd, args: args)
+      json({ cmd: cmd, args: args, result: result, simulated: false, truncated: truncated })
     end
 
     # ----- live streams (Rack 3 streaming bodies) -------------------------
-
-    # GET /admin/api/stream/commands (NOT response=json; DefaultHandler lets us
-    # own the body). Emits live Redis commands as Server-Sent Events. Subscribes
-    # via Familia::Instrumentation.on_command. Two limitations (see blockers):
-    #   1. Instrumentation has no unregister hook, so the per-request closure
-    #      leaks permanently; an `alive` flag makes it a no-op after the stream
-    #      ends, but the registration stays.
-    #   2. notify_command only fires when the command-capture middleware is
-    #      enabled (Familia.enable_database_counter / DatabaseCommandCounter),
-    #      which this boot does not turn on. With capture off, the stream emits
-    #      open/heartbeat/close but no `command` events.
-    def stream_commands
-      sse_headers!
-      audit!(:stream_commands)
-
-      unless instrumentation_available?
-        @res.body = sse_static('error', { error: 'instrumentation_unavailable' })
-        return
-      end
-
-      @res.body = SSEBody.new do |emit|
-        queue = Thread::Queue.new
-        alive = true
-        Familia::Instrumentation.on_command do |cmd, duration, ctx|
-          # The hook is never unregistered; once the stream closes, alive is
-          # false and this becomes a cheap no-op.
-          next unless alive
-          full = (ctx && ctx[:full_command]) || cmd
-          queue.push({ event: 'command', cmd: cmd.to_s, duration: duration, full: Array(full).map(&:to_s) })
-        end
-
-        emit.call(sse_event('open', { at: Time.now.to_i }))
-        deadline = Time.now + 25
-        loop do
-          break if Time.now >= deadline
-          payload =
-            begin
-              queue.pop(timeout: 5)
-            rescue StandardError
-              nil
-            end
-          if payload
-            emit.call(sse_event('command', payload))
-          else
-            emit.call(":heartbeat\n\n") # SSE comment keeps the connection warm
-          end
-        end
-        alive = false
-        emit.call(sse_event('close', { at: Time.now.to_i }))
-      end
-    end
+    #
+    # The live command stream was removed (T5): its per-request
+    # Familia::Instrumentation.on_command hook could never be unregistered
+    # (permanent closure accumulation), boot never enabled command capture (the
+    # stream emitted only heartbeats), and each open connection pinned a Puma
+    # worker for 25 seconds.
 
     # GET /admin/api/stream/repair/:model (NOT response=json). Emits repair
     # progress as SSE matching resources/00-assets/fixtures/stream_repair.sample.jsonl:
@@ -756,11 +716,6 @@ module Admin
     # The authenticated admin, from Otto's auth layer.
     def strategy_result
       @req.env['otto.strategy_result']
-    end
-
-    def instrumentation_available?
-      defined?(Familia::Instrumentation) &&
-        Familia::Instrumentation.respond_to?(:on_command)
     end
 
     def actor
