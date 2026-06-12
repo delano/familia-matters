@@ -91,7 +91,7 @@ export function AuthProvider(props: AuthProviderProps): React.JSX.Element {
   const { children, api = adminApi } = props
   const [state, dispatch] = useReducer(authReducer, initialAuthState)
 
-  // Live mirror of state for callbacks that read it across an await. A closed-over
+  // Live view of state for callbacks that read it across an await. A closed-over
   // `state` would be frozen at the value when the callback was created.
   const stateRef = useRef(state)
   stateRef.current = state

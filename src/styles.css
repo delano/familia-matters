@@ -370,9 +370,108 @@ body {
   border-color: var(--admin-text-muted);
 }
 
+.app-body {
+  display: flex;
+  flex: 1;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.app-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: none;
+  width: 168px;
+  padding: var(--otto-space-sm);
+  background: var(--admin-surface);
+  border-right: var(--admin-border);
+}
+
+.app-nav a {
+  padding: var(--otto-space-xs) var(--otto-space-sm);
+  color: var(--admin-text-muted);
+  text-decoration: none;
+  border-radius: var(--otto-radius-sm);
+  font-size: var(--admin-font-size-base);
+  transition: var(--otto-transition-fast);
+}
+
+.app-nav a:hover {
+  color: var(--admin-text);
+  background: var(--admin-surface-raised);
+}
+
+.app-nav a[aria-current='page'] {
+  color: var(--admin-text);
+  background: var(--admin-surface-raised);
+  font-weight: 600;
+}
+
 .app-content {
   flex: 1;
   padding: var(--otto-space-md);
+  min-width: 0;
+}
+
+.screen-title {
+  margin: 0 0 var(--otto-space-sm);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.screen-placeholder-note {
+  color: var(--admin-text-muted);
+  font-style: italic;
+}
+
+.screen-placeholder-desc,
+.route-not-found p {
+  max-width: 60ch;
+  color: var(--admin-text-muted);
+}
+
+/* =========================================================================
+ * Error state (the shared unmissable failure pane — never a silent fallback)
+ * ====================================================================== */
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--otto-space-sm);
+  margin: var(--otto-space-md) 0;
+  padding: var(--otto-space-lg);
+  border: 2px solid var(--admin-status-broken);
+  border-radius: var(--admin-radius);
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.error-state-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--admin-status-broken);
+}
+
+.error-state-detail {
+  margin: 0;
+  max-width: 64ch;
+  color: var(--admin-text);
+}
+
+.error-state-retry {
+  padding: var(--otto-space-xs) var(--otto-space-md);
+  background: transparent;
+  color: var(--admin-text);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  font-size: var(--admin-font-size-base);
+  cursor: pointer;
+  transition: var(--otto-transition-fast);
+}
+
+.error-state-retry:hover {
+  border-color: var(--admin-text-muted);
 }
 
 /* =========================================================================

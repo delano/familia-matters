@@ -2,7 +2,7 @@
 //
 // The shared data-fetch pattern for every ported screen: one hook holding
 // { phase: 'loading' | 'ready' | 'error' } with zero seed state and zero
-// offline mirror. A failed fetch becomes a ResourceError for <ErrorState>;
+// offline fallback. A failed fetch becomes a ResourceError for <ErrorState>;
 // it is NEVER answered from a cache, a seed, or the previous response.
 //
 // Auth wiring: every request flows through useAuth().callOutcome, so a 401

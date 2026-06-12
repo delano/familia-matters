@@ -27,6 +27,8 @@ import { Login } from './components/Login'
 import { PermissionNotice } from './components/PermissionNotice'
 import { ReauthOverlay } from './components/ReauthOverlay'
 import { SessionBar } from './components/SessionBar'
+import { routeHref, useHashRoute } from './router/hashRouter'
+import { SCREEN_ROUTES } from './screens'
 
 interface AppProps {
   /** Location search string carrying return_to; defaults to the real URL. */
@@ -114,6 +116,10 @@ interface AppShellProps {
  * The authenticated shell. This component is mounted for the whole authenticated
  * session — reauth only overlays it — so the local view state below survives the
  * 401 -> reauth -> success cycle and demonstrates location preservation.
+ *
+ * Routing happens INSIDE the shell: every screen renders within this
+ * always-mounted tree, so the reauth overlay (appended below) covers any
+ * screen and the operator's route survives re-authentication unchanged.
  */
 function AppShell(props: AppShellProps): React.JSX.Element {
   const {
@@ -126,6 +132,8 @@ function AppShell(props: AppShellProps): React.JSX.Element {
     reauthLogin,
     onReauthSubmit,
   } = props
+
+  const route = useHashRoute()
 
   // Local, in-memory view state. Nothing persists it; if the tree remounted it
   // would reset to 0. The reauth flow asserts it is preserved.
@@ -140,30 +148,36 @@ function AppShell(props: AppShellProps): React.JSX.Element {
     <div className="app-shell">
       <SessionBar claims={claims} onLogout={onLogout} />
 
-      <main className="app-content" data-testid="app-content">
-        <section>
-          <h2>Session</h2>
-          <dl>
-            <dt>subject</dt>
-            <dd>{claims.sub}</dd>
-            <dt>role</dt>
-            <dd>{claims.role}</dd>
-            <dt>permissions</dt>
-            <dd>{claims.permissions.join(', ') || 'none'}</dd>
-          </dl>
-        </section>
-
-        <section>
-          <p data-testid="action-count">Protected calls issued: {actionCount}</p>
-          <button
-            type="button"
-            data-testid="demo-protected-action"
-            onClick={runProtected}
+      <div className="app-body">
+        <nav className="app-nav" data-testid="app-nav" aria-label="Admin screens">
+          <a
+            href={routeHref('/')}
+            data-testid="nav-overview"
+            aria-current={route === '/' ? 'page' : undefined}
           >
-            Run protected action
-          </button>
-        </section>
-      </main>
+            Overview
+          </a>
+          {SCREEN_ROUTES.map((screen) => (
+            <a
+              key={screen.path}
+              href={routeHref(screen.path)}
+              data-testid={`nav-${screen.slug}`}
+              aria-current={route === screen.path ? 'page' : undefined}
+            >
+              {screen.label}
+            </a>
+          ))}
+        </nav>
+
+        <main className="app-content" data-testid="app-content">
+          <RouteSwitch
+            route={route}
+            claims={claims}
+            actionCount={actionCount}
+            onRunProtected={runProtected}
+          />
+        </main>
+      </div>
 
       {notice && (
         <PermissionNotice message={notice.message} onDismiss={onDismissNotice} />
@@ -173,5 +187,74 @@ function AppShell(props: AppShellProps): React.JSX.Element {
         <ReauthOverlay state={reauthLogin} onSubmit={onReauthSubmit} />
       )}
     </div>
+  )
+}
+
+interface RouteSwitchProps {
+  route: string
+  claims: import('./types').Claims
+  actionCount: number
+  onRunProtected(): void
+}
+
+/** Resolve the current hash route to a screen, the overview, or not-found. */
+function RouteSwitch(props: RouteSwitchProps): React.JSX.Element {
+  const { route, claims, actionCount, onRunProtected } = props
+
+  if (route === '/') {
+    return (
+      <Overview claims={claims} actionCount={actionCount} onRunProtected={onRunProtected} />
+    )
+  }
+
+  const screen = SCREEN_ROUTES.find((s) => s.path === route)
+  if (screen) return screen.render()
+
+  return (
+    <section className="route-not-found" data-testid="route-not-found">
+      <h2 className="screen-title">Unknown route</h2>
+      <p>
+        Nothing lives at <code>{route}</code>.{' '}
+        <a href={routeHref('/')}>Back to the overview</a>.
+      </p>
+    </section>
+  )
+}
+
+interface OverviewProps {
+  claims: import('./types').Claims
+  actionCount: number
+  onRunProtected(): void
+}
+
+/** The default route: session claims plus the protected-call demo the reauth tests drive. */
+function Overview(props: OverviewProps): React.JSX.Element {
+  const { claims, actionCount, onRunProtected } = props
+
+  return (
+    <>
+      <section>
+        <h2>Session</h2>
+        <dl>
+          <dt>subject</dt>
+          <dd>{claims.sub}</dd>
+          <dt>role</dt>
+          <dd>{claims.role}</dd>
+          <dt>permissions</dt>
+          <dd>{claims.permissions.join(', ') || 'none'}</dd>
+        </dl>
+      </section>
+
+      <section>
+        <p data-testid="action-count">Protected calls issued: {actionCount}</p>
+        <button
+          type="button"
+          data-testid="demo-protected-action"
+          onClick={onRunProtected}
+        >
+          Run protected action
+        </button>
+      </section>
+    </>
   )
 }

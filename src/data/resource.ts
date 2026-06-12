@@ -5,8 +5,9 @@
 //
 // Design rule (plan §6 T7): there is NO offline fallback anywhere in this
 // layer. A failed fetch is a failed fetch — it becomes an explicit error state
-// the operator cannot miss, never seed data, never a stale mirror. An operator
-// acting on fabricated records during an outage is an incident-on-incident.
+// the operator cannot miss, never seed data, never a stale offline copy. An
+// operator acting on fabricated records during an outage is an
+// incident-on-incident.
 
 import type { ApiOutcome } from '../types'
 

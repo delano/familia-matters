@@ -5,7 +5,7 @@
 // so the type-coupled chain (api -> machine -> provider -> components -> App)
 // cannot drift. Do not redefine these locally.
 //
-// Backend contract these mirror (lib/familia/admin/sessions.rb, auth.rb):
+// Backend contract these correspond to (lib/familia/admin/sessions.rb, auth.rb):
 //   POST   /admin/api/auth/login    {passphrase} -> 200 Claims (+ HttpOnly cookie)
 //                                                 | 401 {error:'invalid_passphrase'}
 //                                                 | 429 {error:'locked', retry_after}
