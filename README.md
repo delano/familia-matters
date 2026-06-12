@@ -87,6 +87,71 @@ in `Procfile.example` cover the gotchas — most importantly that an unset
 passphrase makes every login fail with a generic "Authentication failed" while
 the server otherwise boots and runs normally.
 
+## Deploying to production
+
+Familia Admin runs as a **separate process** on the production host. It must
+never share the OTS public Puma: never mount the admin app into the public
+server, and never reuse the public server's listener. The public Puma binds
+`0.0.0.0`; the admin tool's destroy/repair/reveal surface, guarded by a
+single shared passphrase, must never ride along on a public bind.
+
+The listener is pinned in config, not operator memory: `config/puma.rb`
+hardcodes `tcp://127.0.0.1:<port>`. Only the port is tunable
+(`FAMILIA_ADMIN_PORT`, default `9292`); the bind host is deliberately not an
+env var, so no deployment mistake can expose the process beyond loopback.
+
+Production must boot with `bundle exec puma`, **never `rackup`**: rackup
+injects its own host/port defaults at Puma's highest config precedence,
+which discards the config-file bind and listens on `0.0.0.0:9292` when
+`RACK_ENV=production` (verified against rackup 2.3.1 + puma 7.2.1). In
+development rackup is fine — its dev default host is localhost.
+
+Operators reach the tool through an SSH tunnel; SSH itself is reachable only
+over VPN via the jumphost. The network perimeter is SSH, and the passphrase
+login covers the remaining local-process threat on the host.
+
+### systemd unit
+
+Run the admin process under systemd as the OTS app user:
+
+```ini
+# /etc/systemd/system/familia-admin.service
+[Unit]
+Description=Familia Admin (internal, loopback-only)
+After=network.target valkey.service
+
+[Service]
+Type=simple
+User=ots
+WorkingDirectory=/opt/onetimesecret
+Environment=RACK_ENV=production
+# FAMILIA_ADMIN_PASSPHRASE and friends belong in an EnvironmentFile
+# readable only by the service user, never in the unit itself.
+EnvironmentFile=/etc/familia-admin/env
+ExecStart=/usr/bin/env bundle exec puma -C config/puma.rb config.ru
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Do not pass `-b`/`-p`/`-o` flags in the unit: explicit flags override
+`config/puma.rb`, and the bind must come from the config file.
+
+### SSH tunnel
+
+```bash
+# local machine (VPN + jumphost assumed by your ssh config)
+ssh -N -L 9292:127.0.0.1:9292 prod-host
+
+# then browse http://127.0.0.1:9292/  (-> /login)
+```
+
+The tunnel's local end is an ordinary loopback port on the operator's
+machine, so browser protections (SameSite cookies, the Origin guard) stay
+load-bearing — they are the defense against drive-by CSRF from other pages
+in the operator's browser.
+
 ## Status
 
 The design study is complete and a high-fidelity, interactive prototype is built

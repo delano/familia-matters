@@ -2,6 +2,10 @@
 
 source 'https://rubygems.org'
 
+# Queue#pop(timeout:) — which the SSE streaming loop relies on — exists only
+# on Ruby >= 3.2; older Rubies would busy-spin the stream loop.
+ruby '>= 3.2'
+
 # Otto 2.2.0 (published 2026-06) carries the route-level auth wiring and the
 # strategy-level AuthorizationFailure -> 403 mapping the auth flow relies on.
 gem 'otto', '~> 2.2'
