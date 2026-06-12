@@ -108,6 +108,21 @@ end
 @emb_prod_devdefaults   = embedded_exit('production')
 @emb_prod_realkeys_pass = embedded_exit('production', REAL_KEYS.merge('FAMILIA_ADMIN_PASSPHRASE' => 'a-real-shared-passphrase'))
 
+# FAMILIA_ADMIN_ENCRYPTION_KEY path-awareness: the embedded path never consumes
+# the variable (key material comes from the host, asserted fail-closed), so the
+# guard must not demand it there -- but an explicitly dev-default value must
+# still refuse (copy-pasted dev env tripwire), and the standalone path, which
+# DOES consume it, must keep demanding it.
+REAL_PASETO_AND_PASS = {
+  'FAMILIA_ADMIN_PASETO_KEY' => REAL_KEYS['FAMILIA_ADMIN_PASETO_KEY'],
+  'FAMILIA_ADMIN_PASSPHRASE' => 'a-real-shared-passphrase',
+}.freeze
+@emb_prod_no_enc_var         = embedded_exit('production', REAL_PASETO_AND_PASS)
+@emb_prod_devdefault_enc_var = embedded_exit('production', REAL_PASETO_AND_PASS.merge(
+  'FAMILIA_ADMIN_ENCRYPTION_KEY' => Familia::Admin::Boot::ENCRYPTION_DEV_KEY,
+))
+@prod_no_enc_var             = boot_exit('production', REAL_PASETO_AND_PASS)
+
 ## BUG #7: production boot with dev-default keys must FAIL (nonzero exit)
 @prod_exit != 0
 #=> true
@@ -156,3 +171,20 @@ end
 ## boots clean -- and the host configuration still survives untouched
 @emb_prod_realkeys_pass
 #=> 0
+
+## embedded production boot with FAMILIA_ADMIN_ENCRYPTION_KEY UNSET boots clean:
+## the embedded path never consumes that variable (the host owns the data
+## encryption keys), so the guard must not demand a dead env var
+@emb_prod_no_enc_var
+#=> 0
+
+## embedded production boot with FAMILIA_ADMIN_ENCRYPTION_KEY explicitly set to
+## the public dev default still refuses (copy-pasted dev env tripwire)
+@emb_prod_devdefault_enc_var != 0
+#=> true
+
+## standalone production boot with FAMILIA_ADMIN_ENCRYPTION_KEY unset still
+## refuses: the standalone path consumes that variable (configure_encryption!),
+## so demanding it there remains correct
+@prod_no_enc_var != 0
+#=> true

@@ -52,19 +52,30 @@ module Familia
 
       # HOST-EMBEDDED path: load the admin code into a process whose Familia
       # configuration (connection URI, encryption keys, key version) the HOST
-      # application already owns. Asserts that configuration exists; writes
-      # none of it. Does not load the dev fixture models (lib/models.rb is a
-      # dev fixture only — the host registers its own Horreum models).
+      # application already owns. Writes none of it. Asserts the encryption
+      # configuration exists (keys + key version, via assert_host_encryption!);
+      # the connection URI is the host's responsibility but is NOT asserted —
+      # Familia initializes Familia.uri to a built-in default at gem load, so
+      # an explicit host assignment of that same value is indistinguishable
+      # from "never configured". There is no unconfigured state to detect; the
+      # try suite proves the URI is never written, which is the property this
+      # path can actually guarantee. Does not load the dev fixture models
+      # (lib/models.rb is a dev fixture only — the host registers its own
+      # Horreum models).
       #
-      # guard_production_keys! runs unchanged on this path too: the PASETO
-      # token key and the shared login passphrase are admin-owned secrets that
-      # gate admin access regardless of who configured Familia, and the guard
-      # must not be weaker on any path. (FAMILIA_ADMIN_ENCRYPTION_KEY is not
-      # consumed on this path — configure_encryption! is never called — but a
-      # dev-default value in a non-dev environment still signals a copy-pasted
-      # dev env, so the guard still refuses it.)
+      # guard_production_keys! runs on this path too: the PASETO token key and
+      # the shared login passphrase are admin-owned secrets that gate admin
+      # access regardless of who configured Familia, and those checks are
+      # identical on both paths. FAMILIA_ADMIN_ENCRYPTION_KEY is the one
+      # path-aware check: this path never consumes it (configure_encryption!
+      # is never called; key material comes from the host and is validated by
+      # assert_host_encryption!), so the guard does not demand it here —
+      # demanding it would put a dead env var in the host's unit file that
+      # reads as live key material. A value explicitly set to the public dev
+      # default still refuses: that cannot be real key material and signals a
+      # copy-pasted dev environment.
       def setup_embedded!
-        guard_production_keys!
+        guard_production_keys!(embedded: true)
         assert_host_encryption!
         load_admin!
         true
@@ -103,7 +114,17 @@ module Familia
       #
       # auth.rb owns DEV_PASETO_KEY but is only required in load_admin! (after
       # this guard), so require it here to resolve the constant.
-      def guard_production_keys!
+      #
+      # embedded: the PASETO-key and passphrase checks are identical on both
+      # paths (admin-owned secrets, never weaker anywhere). Only the
+      # FAMILIA_ADMIN_ENCRYPTION_KEY check is path-aware, because only the
+      # standalone path consumes that variable (configure_encryption!). On the
+      # embedded path the host owns the data-encryption keys — validated
+      # fail-closed by assert_host_encryption! — so an UNSET variable is
+      # correct configuration there, not an offense. A variable explicitly set
+      # to the public dev default refuses on both paths: it cannot be live key
+      # material and signals a copy-pasted dev environment.
+      def guard_production_keys!(embedded: false)
         env = ENV['RACK_ENV'] || ENV['APP_ENV'] || 'development'
         require 'familia/admin/passphrase'
         if env == 'development'
@@ -114,7 +135,7 @@ module Familia
         require 'familia/admin/auth'
 
         paseto = ENV.fetch('FAMILIA_ADMIN_PASETO_KEY', Familia::Admin::Auth::DEV_PASETO_KEY)
-        enc    = ENV.fetch('FAMILIA_ADMIN_ENCRYPTION_KEY', ENCRYPTION_DEV_KEY)
+        enc    = embedded ? ENV['FAMILIA_ADMIN_ENCRYPTION_KEY'] : ENV.fetch('FAMILIA_ADMIN_ENCRYPTION_KEY', ENCRYPTION_DEV_KEY)
 
         offenders = []
         offenders << 'FAMILIA_ADMIN_PASETO_KEY (dev-default PASETO key)' if paseto == Familia::Admin::Auth::DEV_PASETO_KEY
@@ -135,12 +156,22 @@ module Familia
         end
         return if offenders.empty?
 
+        # Name only the offending variables and the remedy that is true for the
+        # path being booted: telling an embedded operator to set
+        # FAMILIA_ADMIN_ENCRYPTION_KEY "to a real secret" would plant a dead
+        # env var in the host's unit file that reads as live key material.
+        set_vars = offenders.map { |o| o[/\A\S+/] }
+        fixes = []
+        if embedded && set_vars.delete('FAMILIA_ADMIN_ENCRYPTION_KEY')
+          fixes << 'unset FAMILIA_ADMIN_ENCRYPTION_KEY (the embedded path never reads it; the host owns the data-encryption keys)'
+        end
+        fixes << "set #{set_vars.join(' and ')} to real secrets" unless set_vars.empty?
+        fixes << 'or run with RACK_ENV=development'
+
         raise <<~MSG.strip
           Refusing to boot in #{env.inspect}: unsafe/missing auth secret(s) for #{offenders.join(' and ')}.
           The dev-default keys are public in the source; the login passphrase gates browser access and
-          must be at least #{Familia::Admin::Passphrase::MIN_LENGTH} characters. Set FAMILIA_ADMIN_PASETO_KEY,
-          FAMILIA_ADMIN_ENCRYPTION_KEY, and FAMILIA_ADMIN_PASSPHRASE to real secrets, or run with
-          RACK_ENV=development.
+          must be at least #{Familia::Admin::Passphrase::MIN_LENGTH} characters. Remedy: #{fixes.join('; ')}.
         MSG
       end
 
