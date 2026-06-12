@@ -73,12 +73,36 @@ module Familia
       # demanding it would put a dead env var in the host's unit file that
       # reads as live key material. A value explicitly set to the public dev
       # default still refuses: that cannot be real key material and signals a
-      # copy-pasted dev environment.
+      # copy-pasted dev environment. ANY set value draws a boot-time warning
+      # (warn_unused_embedded_encryption_key!) — without it an operator who
+      # "rotates" the variable would believe they changed live key material.
+      #
+      # Env resolution is also path-aware: with neither RACK_ENV nor APP_ENV
+      # set, standalone keeps its historical development default, while the
+      # embedded path treats the env as unresolved and the guard runs in full
+      # (fail-closed — see the comment inside guard_production_keys!).
       def setup_embedded!
+        warn_unused_embedded_encryption_key!
         guard_production_keys!(embedded: true)
         assert_host_encryption!
         load_admin!
         true
+      end
+
+      # The embedded path never reads FAMILIA_ADMIN_ENCRYPTION_KEY (key
+      # material comes from the host; configure_encryption! is never called).
+      # The guard refuses only the public dev-default value; any OTHER set
+      # value would be silently ignored — an operator who "rotates" it would
+      # believe they changed live key material. Warn at boot, every env, any
+      # value, before the guard can raise, so the unused variable is named
+      # even on a refused boot.
+      def warn_unused_embedded_encryption_key!
+        return unless ENV.key?('FAMILIA_ADMIN_ENCRYPTION_KEY')
+
+        warn '[familia-admin boot] FAMILIA_ADMIN_ENCRYPTION_KEY is set but the embedded ' \
+             'path never reads it: the host application owns the data-encryption keys ' \
+             '(Familia.config.encryption_keys). Unset it — rotating it here changes no ' \
+             'live key material.'
       end
 
       # Assert — never set — the host's Familia encryption configuration.
@@ -116,16 +140,28 @@ module Familia
       # this guard), so require it here to resolve the constant.
       #
       # embedded: the PASETO-key and passphrase checks are identical on both
-      # paths (admin-owned secrets, never weaker anywhere). Only the
-      # FAMILIA_ADMIN_ENCRYPTION_KEY check is path-aware, because only the
-      # standalone path consumes that variable (configure_encryption!). On the
-      # embedded path the host owns the data-encryption keys — validated
-      # fail-closed by assert_host_encryption! — so an UNSET variable is
-      # correct configuration there, not an offense. A variable explicitly set
-      # to the public dev default refuses on both paths: it cannot be live key
-      # material and signals a copy-pasted dev environment.
+      # paths (admin-owned secrets, never weaker anywhere). Two checks are
+      # path-aware:
+      #   - FAMILIA_ADMIN_ENCRYPTION_KEY, because only the standalone path
+      #     consumes that variable (configure_encryption!). On the embedded
+      #     path the host owns the data-encryption keys — validated
+      #     fail-closed by assert_host_encryption! — so an UNSET variable is
+      #     correct configuration there, not an offense. A variable explicitly
+      #     set to the public dev default refuses on both paths: it cannot be
+      #     live key material and signals a copy-pasted dev environment.
+      #   - env resolution, because only the standalone path has a legacy
+      #     no-env dev flow to preserve. Embedded with neither RACK_ENV nor
+      #     APP_ENV set runs the full guard instead of skipping it.
       def guard_production_keys!(embedded: false)
-        env = ENV['RACK_ENV'] || ENV['APP_ENV'] || 'development'
+        env = ENV['RACK_ENV'] || ENV['APP_ENV']
+        # Standalone keeps the historical no-env => development default: the
+        # rake/rackup/test dev flow boots with no env set, and changing that
+        # breaks the unchanged-dev-flow contract (T2 AC2). The embedded path
+        # has no such legacy and fails closed instead: a host process that
+        # sets neither RACK_ENV nor APP_ENV is misconfigured, not development,
+        # and defaulting it to development would skip this guard — booting a
+        # misconfigured production host on the public dev PASETO key.
+        env ||= embedded ? '(unset)' : 'development'
         require 'familia/admin/passphrase'
         if env == 'development'
           warn_weak_dev_passphrase!

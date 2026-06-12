@@ -25,6 +25,8 @@ APP_DIR = File.expand_path('..', __dir__)
 # Run `Boot.setup!` in a fresh Ruby subprocess under a given RACK_ENV, with the
 # dev-default keys (i.e. no FAMILIA_ADMIN_PASETO_KEY / _ENCRYPTION_KEY override).
 # Returns the child's exit status (0 = booted clean, nonzero = refused/raised).
+# rack_env nil = genuinely unset (the env-resolution cases below need both
+# RACK_ENV and APP_ENV absent in the child).
 def boot_exit(rack_env, overrides = {})
   script = "$LOAD_PATH.unshift(File.join('#{APP_DIR}','lib')); " \
            "require 'familia/admin/boot'; " \
@@ -33,6 +35,7 @@ def boot_exit(rack_env, overrides = {})
   # apply per-case overrides (real keys / passphrase) on top.
   env = {
     'RACK_ENV' => rack_env,
+    'APP_ENV' => nil,
     'FAMILIA_ADMIN_PASETO_KEY' => nil,
     'FAMILIA_ADMIN_ENCRYPTION_KEY' => nil,
     'FAMILIA_ADMIN_PASSPHRASE' => nil,
@@ -88,16 +91,31 @@ EMBEDDED_SNIPPET = <<~RUBY.freeze
   exit 13 if defined?(Customer)
 RUBY
 
-def embedded_exit(rack_env, overrides = {}, preconfigure: true)
-  env = {
+def embedded_env(rack_env, overrides, preconfigure)
+  {
     'RACK_ENV' => rack_env,
+    'APP_ENV' => nil,
     'FAMILIA_ADMIN_PASETO_KEY' => nil,
     'FAMILIA_ADMIN_ENCRYPTION_KEY' => nil,
     'FAMILIA_ADMIN_PASSPHRASE' => nil,
     'TRY_HOST_PRECONFIG' => preconfigure ? '1' : '0',
   }.merge(overrides)
+end
+
+def embedded_exit(rack_env, overrides = {}, preconfigure: true)
+  env = embedded_env(rack_env, overrides, preconfigure)
   system(env, 'bundle', 'exec', 'ruby', '-e', EMBEDDED_SNIPPET, chdir: APP_DIR, out: File::NULL, err: File::NULL)
   $?.exitstatus
+end
+
+# Like embedded_exit but returns [exitstatus, stderr] — for the cases that
+# assert what the boot SAYS (the unused-variable warning), not just whether
+# it booted.
+require 'open3'
+def embedded_capture(rack_env, overrides = {}, preconfigure: true)
+  env = embedded_env(rack_env, overrides, preconfigure)
+  _out, err, status = Open3.capture3(env, 'bundle', 'exec', 'ruby', '-e', EMBEDDED_SNIPPET, chdir: APP_DIR)
+  [status.exitstatus, err]
 end
 
 @emb_dev_preconfigured  = embedded_exit('development')
@@ -122,6 +140,23 @@ REAL_PASETO_AND_PASS = {
   'FAMILIA_ADMIN_ENCRYPTION_KEY' => Familia::Admin::Boot::ENCRYPTION_DEV_KEY,
 ))
 @prod_no_enc_var             = boot_exit('production', REAL_PASETO_AND_PASS)
+
+# Env resolution is path-aware (round 3): with neither RACK_ENV nor APP_ENV
+# set, the standalone path keeps its historical development default (the
+# no-env rake/rackup dev flow, T2 AC2), while the embedded path treats the
+# env as unresolved and runs the full guard — a misconfigured production
+# host must not skip the guard onto the public dev PASETO key.
+@standalone_noenv        = boot_exit(nil)
+@emb_noenv_devdefaults   = embedded_exit(nil)
+@emb_noenv_realsecrets   = embedded_exit(nil, REAL_PASETO_AND_PASS)
+
+# FAMILIA_ADMIN_ENCRYPTION_KEY set to a REAL (non-dev-default) value on the
+# embedded path is never consumed; without a warning an operator who
+# "rotates" it would believe they changed live key material (round 3).
+@emb_warn_status, @emb_warn_stderr = embedded_capture('development', {
+  'FAMILIA_ADMIN_ENCRYPTION_KEY' => REAL_KEYS['FAMILIA_ADMIN_ENCRYPTION_KEY'],
+})
+@emb_nowarn_status, @emb_nowarn_stderr = embedded_capture('development')
 
 ## BUG #7: production boot with dev-default keys must FAIL (nonzero exit)
 @prod_exit != 0
@@ -188,3 +223,31 @@ REAL_PASETO_AND_PASS = {
 ## so demanding it there remains correct
 @prod_no_enc_var != 0
 #=> true
+
+## standalone boot with NEITHER RACK_ENV nor APP_ENV set keeps the historical
+## development default and boots (the no-env rake/rackup dev flow, T2 AC2)
+@standalone_noenv
+#=> 0
+
+## embedded boot with NEITHER RACK_ENV nor APP_ENV set FAILS CLOSED on
+## dev-default secrets: an env-less host process is misconfigured, not
+## development, and must not skip the guard onto the public dev PASETO key
+@emb_noenv_devdefaults != 0
+#=> true
+
+## embedded boot with no env but REAL admin secrets and host-configured
+## Familia boots clean: the env-less default is "run the full guard",
+## not a hard refusal
+@emb_noenv_realsecrets
+#=> 0
+
+## a real (non-dev-default) FAMILIA_ADMIN_ENCRYPTION_KEY on the embedded path
+## still boots (it is not the dev default) but draws a boot-time warning --
+## the variable is never consumed there, and silence would let an operator
+## believe a "rotation" changed live key material
+[@emb_warn_status, @emb_warn_stderr.include?('FAMILIA_ADMIN_ENCRYPTION_KEY is set but the embedded')]
+#=> [0, true]
+
+## with the variable unset, the embedded boot emits no such warning
+[@emb_nowarn_status, @emb_nowarn_stderr.include?('FAMILIA_ADMIN_ENCRYPTION_KEY')]
+#=> [0, false]
