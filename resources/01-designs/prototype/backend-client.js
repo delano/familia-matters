@@ -149,7 +149,10 @@
       case 'raw.info':
         return { method: 'GET', path: 'raw/info' };
       case 'raw.command':
-        return { method: 'POST', path: 'raw/command', body: { cmd: p.cmd, args: p.args, force: !!p.force } };
+        // No force key: run_command has no escalation parameter (T5). The
+        // allowlist never consulted it; sending it implied an override that
+        // does not exist.
+        return { method: 'POST', path: 'raw/command', body: { cmd: p.cmd, args: p.args } };
 
       default:
         return null;

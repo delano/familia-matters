@@ -1,6 +1,6 @@
 # AGENTS.md
 
-_Updated: 2026-06-08_
+_Updated: 2026-06-12_
 
 ## Discovery: Familia Admin
 
@@ -9,7 +9,7 @@ A design-study + interactive-prototype + Ruby-scaffolding repo for a model-aware
 ### Key Files
 
 **Contract layer (`resources/00-assets/`)** — the source of truth both ends honor:
-- `routes.txt`: Otto route map. 27 HTTP endpoints + 4 MCP/TOOL methods, grouped Discovery/Records/Collections/Query/Integrity/Migrations/Raw/Streams. Encodes auth tiers (`role:admin` vs `permission:{reveal_secrets,repair,run_migrations,raw_command}`) and `csrf=exempt` on mutations.
+- `routes.txt`: Otto route map. 28 HTTP endpoints, grouped Auth/Discovery/Records/Collections/Query/Integrity/Migrations/Raw/Streams. Encodes auth tiers (`role:admin` vs `permission:{reveal_secrets,repair,run_migrations,raw_command}`) and `csrf=exempt` on mutations. (The agent-protocol route stubs were removed in T5 — `docs/0612-familia-admin-production-hardening-plan.md` §9 records re-adding that surface when it is actually built.)
 - `lib/familia/admin/descriptor.rb`: `Familia::Admin::Descriptor` — pure-metadata reflection of `Familia.members` into the UI contract. **Zero DB reads** (so `/_meta` is cacheable); every reflection call wrapped in `safe{}`. Verified vs Familia 2.10.1.
 - `lib/familia/admin/api.rb`: `Admin::API` — thin Otto controller. Read/integrity/migration actions implemented; create/update, `mutate_collection`, raw explorer, and SSE streams are `not_implemented` skeletons with correct hints.
 - `fixtures/models.rb`: three worked models (`Customer` rich/encrypted/indexed, `Session` on `logical_database 1`, `ApiKey` participation) the rest derives from.
@@ -50,11 +50,11 @@ Auth model: Otto enforces tier from `routes.txt` *before* the controller runs; `
 ### Dependencies
 
 - **Internal**: `api.rb` → `descriptor.rb`. Both depend on the live Familia runtime (`Familia.members`, `index_descriptors`, `health_check`, `repair_all!`, `Migration::Runner/Registry`). Prototype screens → `_ds` bundle + shared `familiaBackend` + `window.REC`/seed data.
-- **External**: Familia 2.10.1 (Redis/Valkey object layer); Otto (Rack 3 routing, MCP, auth, CSRF); React + ReactDOM via CDN; `window.claude.complete` (Claude Design runtime); `JSON` stdlib. Familia and Otto source repos live as siblings at `../`.
+- **External**: Familia 2.10.1 (Redis/Valkey object layer); Otto (Rack 3 routing, auth, CSRF); React + ReactDOM via CDN; `window.claude.complete` (Claude Design runtime); `JSON` stdlib. Familia and Otto source repos live as siblings at `../`.
 
 ### Observations
 
-- **The descriptor is the architecture.** Frontend isn't generated or hand-synced — it reflects `/_meta` at runtime, so new models need zero scaffolding. Same contract is re-exposed as MCP tools, so an agent drives the exact surface a human does.
+- **The descriptor is the architecture.** Frontend isn't generated or hand-synced — it reflects `/_meta` at runtime, so new models need zero scaffolding.
 - **The backend is an LLM.** The prototype has no JS state machine; `backend-simulator.md` is a system prompt and state lives in the conversation transcript. Going live is described as a one-transport swap, with fixtures becoming contract tests.
 - **Honesty markers in the contract**: `count_fast` is flagged O(1)-but-phantom-prone; encrypted → `[CONCEALED]`, transient omitted, plaintext only via audited single-field reveal; cross-`logical_database` repairs return `CrossDatabaseError` (drives the "Refused" UI state).
 - **Status**: read/integrity/migration paths real; mutations/raw/streams are skeletons. The 8-state preview switcher in `integrity-console/App.jsx` (issues→healthy→dryrun→repairing→repaired→partial→refused→noperm) maps the full dangerous-action lifecycle the design mandates (dry-run → confirm-with-impact → apply).

@@ -56,3 +56,12 @@ reset_and_seed!
 status, body = adm_get('/admin/api/models/customer/index/name')
 [status, body['error']]
 #=> [200, "scan_required"]
+
+## forcing a query on an un-indexed field is an explicit 4xx error -- never the
+## fabricated {forced: true, records: []} empty success an operator would read
+## as "no matching records" (T5)
+reset_and_seed!
+status, body = adm_get('/admin/api/models/customer/index/name',
+                       params: { value: 'x', force: 'true' })
+[status, body['error'], body.key?('records'), body.key?('forced')]
+#=> [400, "scan_unavailable", false, false]

@@ -51,9 +51,10 @@ require 'rack/test'
 require 'familia/admin/rack_app'
 
 # ---------------------------------------------------------------------------
-# The Otto app: identical wiring to config.ru. Otto logs MCP route-load errors
-# to stderr (Admin::MCP is not implemented); that is expected noise and does not
-# affect the HTTP routes under test. Silence it so the test output stays clean.
+# The Otto app: identical wiring to config.ru. Route loading must be silent --
+# every line in routes.txt loads a real handler, so any load-error output here
+# is a regression (T5 removed the unimplemented MCP stubs and the stderr
+# silencing that hid their noise).
 # ---------------------------------------------------------------------------
 ROUTES_PATH = File.join(APP_ROOT, 'resources', '00-assets', 'routes.txt') unless defined?(ROUTES_PATH)
 
@@ -225,10 +226,10 @@ module AdminTestHarness
   end
 
   # Direct Otto.call returning the bare [status, headers, body] triplet WITHOUT
-  # enumerating the body. Used for the stream_commands route, whose live body is
-  # a 25-second SSE loop -- iterating it (as rack-test does on last_response.body)
-  # would block the suite. The triplet's status/headers are set before any frame
-  # is emitted, so this asserts the auth gate + SSE headers cheaply.
+  # enumerating the body. Used for SSE stream routes, whose live bodies do real
+  # work when iterated (as rack-test does on last_response.body). The triplet's
+  # status/headers are set before any frame is emitted, so this asserts the
+  # auth gate + SSE headers cheaply.
   def otto_call(path, token = admin_token, method: 'GET', accept: 'text/event-stream')
     env = {
       'REQUEST_METHOD' => method,
