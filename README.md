@@ -106,13 +106,29 @@ which discards the config-file bind and listens on `0.0.0.0:9292` when
 `RACK_ENV=production` (verified against rackup 2.3.1 + puma 7.2.1). In
 development rackup is fine — its dev default host is localhost.
 
+This rule is enforced, not just documented: rackup's puma handler loads
+`config/puma.rb` before clobbering its bind, and that file aborts the boot
+when `RACK_ENV=production` and rackup is driving (verified: production
+rackup exits 1 with a targeted error; no listener opens). The residual gap
+is explicit operator overrides — `puma -b/-p` flags outrank the config
+file, and a non-Puma server pointed at `config.ru` never loads it. Those
+stay procedural; owner: @delano (deployment runbook).
+
 Operators reach the tool through an SSH tunnel; SSH itself is reachable only
 over VPN via the jumphost. The network perimeter is SSH, and the passphrase
 login covers the remaining local-process threat on the host.
 
 ### systemd unit
 
-Run the admin process under systemd as the OTS app user:
+Run the admin process under systemd as the OTS app user. `<ADMIN_ROOT>`
+below is the directory containing the **admin's** `config/puma.rb` and
+`config.ru` — its final location inside the OTS tree is not settled yet
+and lands with the OTS integration work (plan T2+). Substitute the real
+admin root, and keep both paths absolute: relative names resolved against
+the OTS application root would pick up the **host app's** `config/puma.rb`
+and `config.ru` and boot the wrong server. (`<ADMIN_ROOT>` is a
+placeholder systemd will reject verbatim — deliberately, so an unedited
+unit fails loudly instead of booting the wrong app.)
 
 ```ini
 # /etc/systemd/system/familia-admin.service
@@ -123,12 +139,12 @@ After=network.target valkey.service
 [Service]
 Type=simple
 User=ots
-WorkingDirectory=/opt/onetimesecret
+WorkingDirectory=<ADMIN_ROOT>
 Environment=RACK_ENV=production
 # FAMILIA_ADMIN_PASSPHRASE and friends belong in an EnvironmentFile
 # readable only by the service user, never in the unit itself.
 EnvironmentFile=/etc/familia-admin/env
-ExecStart=/usr/bin/env bundle exec puma -C config/puma.rb config.ru
+ExecStart=/usr/bin/env bundle exec puma -C <ADMIN_ROOT>/config/puma.rb <ADMIN_ROOT>/config.ru
 Restart=on-failure
 
 [Install]

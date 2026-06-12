@@ -1,6 +1,6 @@
-# config/puma.rb
-#
 # frozen_string_literal: true
+#
+# config/puma.rb
 #
 # Deployment safety: pin the listener to loopback (ticket T1).
 #
@@ -23,16 +23,30 @@
 #                        the Vite proxy target in vite.config.ts)
 #
 # Production MUST boot with `bundle exec puma` (which loads this file; the
-# systemd unit in the README passes `-C config/puma.rb` explicitly). Do NOT
-# use `rackup` in production: rackup feeds its own Host/Port defaults into
-# Puma's highest-precedence config layer, which clears this file's bind and
+# systemd unit in the README passes `-C` explicitly). Do NOT use `rackup`
+# in production: rackup feeds its own Host/Port defaults into Puma's
+# highest-precedence config layer, which clears this file's bind and
 # listens on 0.0.0.0:9292 when RACK_ENV=production (verified against
 # rackup 2.3.1 + puma 7.2.1). In development rackup stays fine — its dev
 # default host is localhost.
 
-port = Integer(ENV.fetch('FAMILIA_ADMIN_PORT', '9292'), exception: false)
-if port.nil? || !port.positive?
-  abort "FAMILIA_ADMIN_PORT must be a positive integer " \
+# Enforce the puma-not-rackup rule rather than leaving it procedural.
+# rackup's puma handler still loads this file before clobbering its bind,
+# so a production boot via rackup dies here with a targeted error instead
+# of silently listening on 0.0.0.0. (Rackup::Server is only defined when
+# the rackup executable is driving the boot.)
+if ENV.fetch('RACK_ENV', 'development') == 'production' && defined?(::Rackup::Server)
+  abort 'Familia Admin must boot via `bundle exec puma` in production, never ' \
+        'rackup: rackup overrides the loopback bind in config/puma.rb and ' \
+        'would listen on 0.0.0.0. See README "Deploying to production".'
+end
+
+# Base 10 keeps Integer() from accepting hex/octal spellings like '0x10';
+# the range check rejects ports TCP cannot bind (puma would otherwise fail
+# later with a less targeted error).
+port = Integer(ENV.fetch('FAMILIA_ADMIN_PORT', '9292'), 10, exception: false)
+unless port && (1..65_535).cover?(port)
+  abort 'FAMILIA_ADMIN_PORT must be an integer between 1 and 65535 ' \
         "(got #{ENV['FAMILIA_ADMIN_PORT'].inspect})"
 end
 
