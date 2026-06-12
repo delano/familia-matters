@@ -120,15 +120,24 @@ login covers the remaining local-process threat on the host.
 
 ### systemd unit
 
-Run the admin process under systemd as the OTS app user. `<ADMIN_ROOT>`
-below is the directory containing the **admin's** `config/puma.rb` and
-`config.ru` — its final location inside the OTS tree is not settled yet
-and lands with the OTS integration work (plan T2+). Substitute the real
-admin root, and keep both paths absolute: relative names resolved against
-the OTS application root would pick up the **host app's** `config/puma.rb`
-and `config.ru` and boot the wrong server. (`<ADMIN_ROOT>` is a
-placeholder systemd will reject verbatim — deliberately, so an unedited
-unit fails loudly instead of booting the wrong app.)
+Run the admin process under systemd as the OTS app user. Two placeholders
+must be substituted before the unit can start — both are deliberately
+strings systemd rejects verbatim, so an unedited unit fails loudly instead
+of booting the wrong app:
+
+- `<ADMIN_ROOT>` is the directory containing the **admin's** `config/puma.rb`
+  and `config.ru` — its final location inside the OTS tree is not settled
+  yet and lands with the OTS integration work (plan T2+). Keep both paths
+  absolute: relative names resolved against the OTS application root would
+  pick up the **host app's** `config/puma.rb` and `config.ru` and boot the
+  wrong server.
+- `<BUNDLE_BIN>` is the absolute path to `bundle` **as resolved for the
+  service user**: `sudo -u ots sh -lc 'command -v bundle'`. systemd does
+  not run login shells, so its default `PATH` never includes version-manager
+  shims — under rbenv/rvm/chruby, `/usr/bin/env bundle` fails (or worse,
+  resolves to a system Ruby that violates the `>= 3.2` pin). Use the shim's
+  absolute path (e.g. `/home/ots/.rbenv/shims/bundle`) or the manager's
+  exec wrapper.
 
 ```ini
 # /etc/systemd/system/familia-admin.service
@@ -144,7 +153,7 @@ Environment=RACK_ENV=production
 # FAMILIA_ADMIN_PASSPHRASE and friends belong in an EnvironmentFile
 # readable only by the service user, never in the unit itself.
 EnvironmentFile=/etc/familia-admin/env
-ExecStart=/usr/bin/env bundle exec puma -C <ADMIN_ROOT>/config/puma.rb <ADMIN_ROOT>/config.ru
+ExecStart=<BUNDLE_BIN> exec puma -C <ADMIN_ROOT>/config/puma.rb <ADMIN_ROOT>/config.ru
 Restart=on-failure
 
 [Install]
