@@ -37,7 +37,7 @@ RISK RESTATEMENT:
 - <anything specific to this ticket's blast radius>
 
 ### VALIDATION (ticket-specific; plan §7 suite also required)
-- <command that exits 0, e.g. bundle exec ruby try/auth_try.rb>
+- <command that exits 0, e.g. bundle exec try --agent try/auth_try.rb>
 - SCOPE_CHECK passes (plan §7)
 - BASELINE_DIFF: no new failures vs the captured baseline
 

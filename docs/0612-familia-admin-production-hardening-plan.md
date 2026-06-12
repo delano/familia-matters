@@ -86,7 +86,7 @@ written against.
 | HAS_INSTANCES     | `bundle exec ruby -e 'require "familia"; puts Familia::Horreum.respond_to?(:instances)'`        | `true` | STOP — `list_records` silently shows zero records |
 | HAS_HEALTH_CHECK  | `bundle exec ruby -e 'require "familia"; puts Familia::Horreum.respond_to?(:health_check)'`     | `true` | STOP — the integrity console has no backend |
 | HAS_REPAIR_ALL    | `bundle exec ruby -e 'require "familia"; puts Familia::Horreum.respond_to?(:repair_all!)'`      | `true` | STOP — repair endpoints have no backend |
-| SMOKE_BASELINE    | `bundle exec ruby try/smoke_try.rb; echo "exit=$?"`                                 | `exit=0`   | STOP — broken before you started; report, do not "fix" |
+| SMOKE_BASELINE    | `bundle exec try --agent try/smoke_try.rb; echo "exit=$?"`                          | `exit=0`   | STOP — broken before you started; report, do not "fix" |
 
 OTS-integration constants — required only for T2 and any ticket touching the
 host boot path. These run against the OTS checkout, not this repo. If you
@@ -323,16 +323,29 @@ a human picks an option**:
 ## 7. VALIDATION (project-wide; run for baseline and acceptance)
 
 ```
-SMOKE:       bundle exec ruby try/smoke_try.rb
-AUTH:        bundle exec ruby try/auth_try.rb
-ALL_TRIES:   for f in try/*_try.rb; do echo "--- $f"; bundle exec ruby "$f" || exit 1; done
+SMOKE:       bundle exec try --agent try/smoke_try.rb
+AUTH:        bundle exec try --agent try/auth_try.rb
+ALL_TRIES:   bundle exec try --agent try/
 TYPECHECK:   npm run typecheck
 UNIT:        npm test
 BUILD:       npm run build && test -f dist/index.html
+SCOPE_FETCH: git fetch origin main && git rev-parse -q --verify origin/main
 SCOPE_CHECK: git diff --name-only origin/main...HEAD | grep -vE \
              '^(lib/familia/admin|src|try|config|docs|resources/(00-assets/routes\.txt|01-designs))|^(config\.ru|Gemfile|README\.md|\.gitignore)$' \
              && echo "SCOPE VIOLATION" && exit 1 || echo "scope ok"
 ```
+
+Tryouts files encode assertions as `#=>` expectation comments; running them
+with plain `ruby` skips every assertion and only catches load errors. Always
+use the `try` runner (as CI does — `ALL_TRIES` is CI's exact invocation) so
+expectation failures exit non-zero.
+
+`origin/main...HEAD` diffs from the merge base, matching PR intent. Run
+SCOPE_FETCH first so the base ref exists — it fails loudly when the fetch
+refspec can't create `origin/main` (e.g. single-branch clones). In a shallow
+clone (CI default fetch-depth) deepen instead: `git fetch --unshallow origin
+main`. Never run SCOPE_CHECK without SCOPE_FETCH: if `git diff` errors, the
+empty pipe makes grep "pass" and prints a false `scope ok`.
 
 Requires live Valkey on `127.0.0.1:6379` (the try suite flushes db0/db1 —
 never point it at real data).
