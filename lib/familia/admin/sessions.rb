@@ -7,6 +7,7 @@ require 'familia/admin/auth'
 require 'familia/admin/passphrase'
 require 'familia/admin/rate_limit'
 require 'familia/admin/audit_log'
+require 'familia/admin/util'
 
 # Admin::Sessions
 #
@@ -28,6 +29,13 @@ require 'familia/admin/audit_log'
 # response, error, or log.
 module Admin
   class Sessions
+    include Familia::Admin::Util
+
+    # Recognized tokens for the FAMILIA_ADMIN_COOKIE_SECURE override. Anything
+    # else (unset, empty, garbage) falls through to the request-aware default.
+    COOKIE_SECURE_TRUE  = %w[1 true yes on].freeze
+    COOKIE_SECURE_FALSE = %w[0 false no off].freeze
+
     def initialize(req, res)
       @req = req
       @res = res
@@ -105,8 +113,8 @@ module Admin
       }
     end
 
-    # Secure flag: on except in development over loopback (auth-ui-spec Open Q#6).
-    # HttpOnly + SameSite=Strict are unconditional (defaults of send_secure_cookie).
+    # Secure flag: request-aware (see secure_cookie? below). HttpOnly +
+    # SameSite=Strict are unconditional (defaults of send_secure_cookie).
     def set_session_cookie(token, ttl)
       @res.send_secure_cookie(Familia::Admin::Auth::SESSION_COOKIE, token, ttl, secure: secure_cookie?)
     end
@@ -116,17 +124,42 @@ module Admin
       @res.send_secure_cookie(Familia::Admin::Auth::SESSION_COOKIE, '', -1, secure: secure_cookie?)
     end
 
+    # The Secure attribute must track the ACTUAL request, not RACK_ENV (T4).
+    # The production deployment is an SSH tunnel: RACK_ENV=production but the
+    # loopback request is plain HTTP. Keying off RACK_ENV set `Secure` there,
+    # and Safari historically drops Secure cookies on loopback http — a silent
+    # login loop. So: Secure when the request is HTTPS or from a non-loopback
+    # client; plain http over loopback omits it. FAMILIA_ADMIN_COOKIE_SECURE
+    # overrides in either direction for deployments this heuristic misjudges.
     def secure_cookie?
-      !(development? && loopback?)
+      override = cookie_secure_override
+      return override unless override.nil?
+
+      request_secure? || !loopback?
     end
 
-    def development?
-      env = ENV['RACK_ENV'] || ENV['APP_ENV'] || 'development'
-      env == 'development'
+    # Tri-state env override: true / false / nil (no override).
+    def cookie_secure_override
+      v = ENV['FAMILIA_ADMIN_COOKIE_SECURE'].to_s.strip.downcase
+      return true  if COOKIE_SECURE_TRUE.include?(v)
+      return false if COOKIE_SECURE_FALSE.include?(v)
+
+      nil
     end
 
+    # Otto::Request#secure? checks the direct connection (HTTPS env / port 443)
+    # and honors X-Forwarded-Proto ONLY from Otto's trusted_proxies — the same
+    # single trust config client_ip leans on.
+    def request_secure?
+      @req.respond_to?(:secure?) ? !!@req.secure? : @req.env['rack.url_scheme'] == 'https'
+    end
+
+    # Deliberately NOT Otto::Request#local?: that helper is env-gated (always
+    # false outside dev), which would smuggle RACK_ENV right back into the
+    # Secure decision. The TCP peer address is the truth we key on; through the
+    # SSH tunnel every operator arrives as 127.0.0.1.
     def loopback?
-      @req.respond_to?(:local?) ? !!@req.local? : %w[127.0.0.1 ::1].include?(@req.env['REMOTE_ADDR'])
+      %w[127.0.0.1 ::1].include?(@req.env['REMOTE_ADDR'].to_s)
     end
 
     # The rate-limit key — must be an address the client cannot forge. `@req.ip`
@@ -147,25 +180,14 @@ module Admin
       @req.respond_to?(:ip) && @req.ip ? @req.ip : (@req.env['REMOTE_ADDR'] || 'unknown')
     end
 
-    def body_json
-      @body_json ||= begin
-        body = @req.body
-        raw = body ? body.read : ''
-        body.rewind if body.respond_to?(:rewind)
-        raw.to_s.empty? ? {} : (JSON.parse(raw) rescue {})
-      end
-    end
+    # body_json / json / safe come from Familia::Admin::Util (shared with
+    # Admin::API); see util.rb for the Otto JSONHandler contract and the T4
+    # truth-telling policy.
 
+    # Auditing must never break login itself, but a failed audit write is
+    # LOGGED via safe{} (T4) instead of vanishing.
     def audit!(action, actor: 'anonymous', **details)
-      Familia::Admin::AuditLog.record(actor: actor, action: action, **details)
-    rescue StandardError
-      nil
-    end
-
-    # Set @res.status and RETURN the bare hash (Otto JSONHandler serializes it).
-    def json(payload, status: 200)
-      @res.status = status
-      payload
+      safe('audit!') { Familia::Admin::AuditLog.record(actor: actor, action: action, **details) }
     end
   end
 end
