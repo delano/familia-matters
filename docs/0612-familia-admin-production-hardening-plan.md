@@ -54,6 +54,7 @@ IN_SCOPE:
   resources/00-assets/routes.txt
   resources/01-designs/**    (deletions and Vite-migration moves only)
   docs/**                    .gitignore      README.md
+  AGENTS.md                  (T5 + T6 only — keep in sync with the API surface)
 
 NOT_IN_SCOPE:
   Anything outside this repository
@@ -223,7 +224,9 @@ is the large interactive ticket and runs last.
 #### T5 — API hardening: kill the liars and the dead surface
 - **Files**: `api.rb`, `resources/00-assets/routes.txt`, `rack_app.rb`,
   `try/raw_try.rb`, `try/query_try.rb`, `try/streams_try.rb`,
-  `resources/01-designs/prototype/backend-client.js` (force key only).
+  `resources/01-designs/prototype/backend-client.js` (force key only),
+  `AGENTS.md` (route counts + MCP architecture description — this ticket
+  removes the surface AGENTS.md documents).
 - **Remove the inert `force` param** from `run_command`: the allowlist check
   never consults it; it only flows into audit/response, implying an
   escalation path that does not exist. Drop it from the controller, the
@@ -248,10 +251,15 @@ is the large interactive ticket and runs last.
   stream cases remain, commands cases removed).
 - **AC4**: boot emits no stderr noise (the MCP lines are gone, so nothing
   to silence) — assert by booting the test helper and checking stderr.
+- **AC5**: `grep -ci "mcp" AGENTS.md` → 0; the AGENTS.md route count
+  matches the post-T5 `routes.txt`.
 
 #### T6 — Ops baseline: read-only mode, destroy snapshots, audit surface, TTL env
 - **Files**: `lib/familia/admin/read_only_guard.rb` (new), `api.rb`,
-  `routes.txt`, `audit_log.rb`, `auth.rb` (TTL env), new try file.
+  `routes.txt`, `audit_log.rb`, `auth.rb` (TTL env), new try file,
+  `README.md` (consolidated env-var reference — T6 is the last ticket
+  that introduces one), `AGENTS.md` (route count — this ticket adds the
+  audit endpoint).
 - **Read-only mode**: a small middleware (OriginGuard-shaped) that 403s
   mutating methods under `/admin/api` with `{error: 'read_only'}` when
   `FAMILIA_ADMIN_READ_ONLY` is on. **Default ON when `RACK_ENV=production`**,
@@ -273,6 +281,11 @@ is the large interactive ticket and runs last.
 - **AC3**: `GET /admin/api/audit` returns newest-first entries; requires
   auth (401 bare).
 - **AC4**: trim try case: write limit+10 entries, count == limit.
+- **AC5**: README gains one env-var table covering every `FAMILIA_ADMIN_*`
+  variable introduced through T6 — `LOGIN_LIMITER`, `COOKIE_SECURE`,
+  `READ_ONLY`, `SESSION_TTL`, and the audit-retention variable this ticket
+  names — each with default and effect. Machine check: each name greps
+  non-zero in `README.md`.
 
 ### Wave 3 — interactive (run last; human reviews the UI)
 
@@ -331,7 +344,7 @@ UNIT:        npm test
 BUILD:       npm run build && test -f dist/index.html
 SCOPE_FETCH: git fetch origin main && git rev-parse -q --verify origin/main
 SCOPE_CHECK: git diff --name-only origin/main...HEAD | grep -vE \
-             '^(lib/familia/admin|src|try|config|docs|resources/(00-assets/routes\.txt|01-designs))|^(config\.ru|Gemfile|README\.md|\.gitignore)$' \
+             '^(lib/familia/admin|src|try|config|docs|resources/(00-assets/routes\.txt|01-designs))|^(config\.ru|Gemfile(\.lock)?|README\.md|AGENTS\.md|\.gitignore)$' \
              && echo "SCOPE VIOLATION" && exit 1 || echo "scope ok"
 ```
 
@@ -346,6 +359,10 @@ refspec can't create `origin/main` (e.g. single-branch clones). In a shallow
 clone (CI default fetch-depth) deepen instead: `git fetch --unshallow origin
 main`. Never run SCOPE_CHECK without SCOPE_FETCH: if `git diff` errors, the
 empty pipe makes grep "pass" and prints a false `scope ok`.
+
+`Gemfile.lock` is allowlisted because `bundle install` rewrites it as a
+normal artifact (T1 does exactly this); hand-edits remain out of scope per
+§3. `AGENTS.md` is allowlisted only for the T5/T6 documentation sync.
 
 Requires live Valkey on `127.0.0.1:6379` (the try suite flushes db0/db1 —
 never point it at real data).
