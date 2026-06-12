@@ -66,7 +66,9 @@ module Admin
 
       Familia::Admin::RateLimit.reset(ip)
 
-      ttl   = Familia::Admin::Auth::DEFAULT_TTL
+      # Env-tunable session duration (T6); the cookie max-age must track the
+      # token's expiry, so both come from the same resolved value.
+      ttl   = Familia::Admin::Auth.session_ttl
       token = Familia::Admin::Auth.mint_session(ttl: ttl)
       set_session_cookie(token, ttl)
 

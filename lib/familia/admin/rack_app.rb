@@ -12,6 +12,7 @@ require 'rack/utils'
 
 require 'familia/admin/auth'
 require 'familia/admin/origin_guard'
+require 'familia/admin/read_only_guard'
 
 module Familia
   module Admin
@@ -70,13 +71,18 @@ module Familia
         raw.split(',').map(&:strip).reject(&:empty?)
       end
 
-      # The API app: OriginGuard wrapping Otto, no static serving. This is what the
-      # contract suite drives, so the CSRF layer is under test.
+      # The API app: ReadOnlyGuard -> OriginGuard -> Otto, no static serving.
+      # This is what the contract suite drives, so both guard layers are under
+      # test. ReadOnlyGuard sits OUTERMOST: when read-only is active a mutation
+      # is refused no matter who asks or where from, so the cheapest check runs
+      # first and the refusal leaks nothing about auth or origin state.
       def api_app(otto_instance)
-        Familia::Admin::OriginGuard.new(
-          otto_instance,
-          cookie_name: Familia::Admin::Auth::SESSION_COOKIE,
-          allowed_origins: allowed_origins,
+        Familia::Admin::ReadOnlyGuard.new(
+          Familia::Admin::OriginGuard.new(
+            otto_instance,
+            cookie_name: Familia::Admin::Auth::SESSION_COOKIE,
+            allowed_origins: allowed_origins,
+          ),
         )
       end
 

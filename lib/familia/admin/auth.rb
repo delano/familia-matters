@@ -61,6 +61,10 @@ module Familia
       DEFAULT_ROLE = 'admin'
       DEFAULT_TTL  = 3_600
 
+      # Session-duration override (T6): FAMILIA_ADMIN_SESSION_TTL, in seconds.
+      # Read at mint time via Auth.session_ttl; default unchanged (DEFAULT_TTL).
+      SESSION_TTL_ENV = 'FAMILIA_ADMIN_SESSION_TTL'
+
       # The Authorization-header shape the strategy accepts: 'Bearer <token>' with
       # a NON-EMPTY token. OriginGuard shares this pattern so it only stands down
       # for a Bearer header the strategy will actually consume — a malformed
@@ -131,10 +135,21 @@ module Familia
         raw.split(',').map(&:strip).reject(&:empty?)
       end
 
+      # The browser-session TTL in seconds: FAMILIA_ADMIN_SESSION_TTL when set
+      # to a positive integer, else DEFAULT_TTL. Read per call so the value
+      # tracks the environment without a code change; non-numeric/zero values
+      # fall back rather than minting an instantly-expired (or eternal) session.
+      # @return [Integer]
+      def session_ttl
+        v = ENV[SESSION_TTL_ENV].to_s
+        n = v.match?(/\A\d+\z/) ? v.to_i : 0
+        n.positive? ? n : DEFAULT_TTL
+      end
+
       # Mint the token a successful passphrase login establishes as the session.
-      # @param ttl [Integer] seconds until expiry
+      # @param ttl [Integer] seconds until expiry (default: the env-tunable session TTL)
       # @return [String] a `v2.local.…` token
-      def mint_session(ttl: DEFAULT_TTL)
+      def mint_session(ttl: session_ttl)
         mint(sub: session_subject, role: DEFAULT_ROLE, permissions: session_permissions, ttl: ttl)
       end
 

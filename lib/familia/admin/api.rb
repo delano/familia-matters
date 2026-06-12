@@ -180,10 +180,18 @@ module Admin
       json(serialize(rec, full: true))
     end
 
+    # DELETE /models/:model/records/:id
+    # Destroy is irreversible, so the audit entry carries a full serialized
+    # snapshot of the record taken BEFORE deletion (T6) — cheap forensics and
+    # the raw material for a manual undo. serialize() masks encrypted fields
+    # as [CONCEALED], so the snapshot never leaks plaintext secrets into the
+    # audit sink.
     def destroy_record
       klass = resolve_model! or return not_found('model')
+      rec = safe { klass.find_by_identifier(param(:id)) }
+      snapshot = rec ? serialize(rec, full: true) : nil
       ok = safe { klass.destroy!(param(:id)) }
-      audit!(:destroy, model: klass.config_name, id: param(:id))
+      audit!(:destroy, model: klass.config_name, id: param(:id), snapshot: snapshot)
       json({ destroyed: !!ok, count_fast: safe { klass.count } })
     end
 
@@ -350,6 +358,19 @@ module Admin
       return bad_request('migration runner unavailable') unless runner
       audit!(:rollback, id: param(:id))
       json({ result: safe { runner.rollback(param(:id)) } })
+    end
+
+    # ----- audit trail -----------------------------------------------------
+
+    # GET /admin/api/audit?limit=
+    # Operator-facing view of the append-only audit sink (T6): newest-first
+    # entries via AuditLog.recent, so reading the trail no longer requires
+    # redis-cli on the production host. Read-only (role:admin); writes happen
+    # only through audit!, and the sink trims itself on write (audit_log.rb).
+    def list_audit
+      limit = (int_param(:limit) || PAGE_DEFAULT).clamp(1, PAGE_MAX)
+      entries = Array(safe { Familia::Admin::AuditLog.recent(limit) })
+      json({ entries: entries, count: entries.size, limit: limit })
     end
 
     # ----- raw explorer ----------------------------------------------------

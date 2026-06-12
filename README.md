@@ -177,6 +177,40 @@ machine, so browser protections (SameSite cookies, the Origin guard) stay
 load-bearing — they are the defense against drive-by CSRF from other pages
 in the operator's browser.
 
+### Read-only by default in production
+
+With `RACK_ENV=production` the API refuses every state-changing request
+(POST/PUT/DELETE/PATCH under `/admin/api`) with `403 {"error":"read_only"}`
+unless `FAMILIA_ADMIN_READ_ONLY=off` is set explicitly. Day-to-day browsing
+of production data carries no destroy/repair/update live-wires; an operator
+flips the switch off deliberately for a maintenance window (EnvironmentFile
+edit + service restart) and flips it back after. GET requests are never
+affected, and the auth endpoints stay reachable so login works in read-only
+mode.
+
+### Environment variable reference
+
+Every `FAMILIA_ADMIN_*` variable, its default, and what it does. Production
+values belong in the systemd `EnvironmentFile` (`/etc/familia-admin/env`),
+never in the unit file.
+
+| Variable | Default | Effect |
+|---|---|---|
+| `FAMILIA_ADMIN_PASSPHRASE` | unset | The shared login passphrase (min 16 chars). Unset ⇒ every login fails with a generic error while the server otherwise runs. |
+| `FAMILIA_ADMIN_PASETO_KEY` | dev key | base64url 32-byte symmetric key for session tokens (PASETO v2.local). The boot guard refuses to start in non-dev with the dev default. |
+| `FAMILIA_ADMIN_ENCRYPTION_KEY` | dev key | Familia field-encryption key — standalone boots only (embedded boots defer to the host app's keys). Same non-dev boot guard. |
+| `FAMILIA_ADMIN_PORT` | `9292` | The loopback port `config/puma.rb` binds. The bind host is hardcoded `127.0.0.1` and deliberately not tunable. |
+| `FAMILIA_ADMIN_READ_ONLY` | `on` when `RACK_ENV=production`, else `off` | Refuse mutating methods under `/admin/api` with `403 read_only`. `on`/`off` override the default in either direction; GETs and `/admin/api/auth/*` are never blocked. |
+| `FAMILIA_ADMIN_SESSION_TTL` | `3600` | Browser session duration in seconds: token expiry and cookie max-age. Non-numeric/zero values fall back to the default. |
+| `FAMILIA_ADMIN_AUDIT_LIMIT` | `10000` | Audit-log retention: on every write the sink keeps only the newest N entries (`ZREMRANGEBYRANK`), bounding the key's memory growth. |
+| `FAMILIA_ADMIN_LOGIN_LIMITER` | on | `off` disables the per-IP login rate limiter. Set `off` for tunnel deployments: every client arrives as `127.0.0.1`, so one global bucket lets a single fat-fingered teammate (or any local process, deliberately) lock out all operators. |
+| `FAMILIA_ADMIN_LOGIN_FAIL_LIMIT` | `5` | Failed login attempts per IP before lockout (when the limiter is on). |
+| `FAMILIA_ADMIN_LOGIN_WINDOW` | `900` | Lockout window in seconds (when the limiter is on). |
+| `FAMILIA_ADMIN_COOKIE_SECURE` | request-aware | Force the session cookie's `Secure` attribute `true`/`false`. Unset: `Secure` when the request is HTTPS or from a non-loopback client; plain http over the loopback tunnel omits it (Safari drops Secure cookies on loopback http). |
+| `FAMILIA_ADMIN_ALLOWED_ORIGINS` | same-origin | Comma-separated `scheme://host[:port]` allowlist for the CSRF OriginGuard on cookie-authenticated mutations. |
+| `FAMILIA_ADMIN_SESSION_SUBJECT` | `admin` | The `sub` claim (audit actor) browser logins are minted under. |
+| `FAMILIA_ADMIN_SESSION_PERMISSIONS` | all elevated | Comma-separated permission grant for browser sessions (default: `reveal_secrets,repair,run_migrations,raw_command`). Narrow it to de-fang a browser session. |
+
 ## Status
 
 The design study is complete and a high-fidelity, interactive prototype is built
