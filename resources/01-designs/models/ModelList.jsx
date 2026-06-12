@@ -57,7 +57,6 @@ function ModelList({ models, version, generatedAt, counts, offline, onOpen, onRe
               <span style={{ color: 'var(--admin-accent)', display: 'flex' }}><RI.layers size={18} /></span>
               <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em' }}>Models</h1>
               <MLDot status="healthy" label="Reflected" />
-              {offline && <window.SimulatedBadge />}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
               <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7 }}>

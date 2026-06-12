@@ -473,7 +473,6 @@ function IntegrityConsole({ state, setState, offline, onOfflineChange }) {
               <span style={{ color: 'var(--admin-accent)', display: 'flex' }}><IIcons.shield size={18} /></span>
               <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em' }}>Integrity console</h1>
               <ICDot status={statusMap.status} label={statusMap.label} />
-              {offline && <SimulatedBadge />}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

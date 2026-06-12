@@ -65,7 +65,6 @@ function KeySearch({ pattern, setPattern, typeFilter, setTypeFilter, keys, curso
             matched <span style={{ color: 'var(--admin-text)' }}>{matched != null ? matched : keys.length}</span>{scanned != null ? ` · scanned ${scanned}` : ''}
           </span>
         ) : <span style={{ fontSize: 11, color: 'var(--admin-text-subtle)' }}>Run a scan to list keys.</span>}
-        {offline && <span style={{ marginLeft: 'auto' }}><SimulatedBadge /></span>}
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>

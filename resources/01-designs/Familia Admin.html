@@ -27,35 +27,6 @@
 <iframe id="frame-migrations" class="screen" src="Migrations.html" title="Migrations" hidden></iframe>
 <iframe id="frame-explorer" class="screen" src="Raw Explorer.html" title="Raw explorer" hidden></iframe>
 
-<!--
-  Single shared backend lives HERE, in the shell, so both screens share one
-  StateModel for the whole prototype session. Each screen's backend-client.js
-  forwards its requests up via postMessage; we answer from the one instance.
--->
-<script src="prototype/seed.js"></script>
-<script src="prototype/backend.js"></script>
-<script>
-  (function () {
-    var backend = (window.createFamiliaBackend && window.claude) ? window.createFamiliaBackend() : null;
-    window.addEventListener('message', function (e) {
-      var d = e.data || {};
-      var src = e.source;
-      if (d.type === 'familia-backend-ping') {
-        if (backend && src) src.postMessage({ type: 'familia-backend-pong', ok: true }, '*');
-        return;
-      }
-      if (d.type === 'familia-backend-req' && src) {
-        if (!backend) { src.postMessage({ type: 'familia-backend-res', id: d.id, error: 'no_backend' }, '*'); return; }
-        backend.request(d.envelope).then(function (result) {
-          src.postMessage({ type: 'familia-backend-res', id: d.id, result: result }, '*');
-        }).catch(function (err) {
-          src.postMessage({ type: 'familia-backend-res', id: d.id, error: String((err && err.message) || err) }, '*');
-        });
-      }
-    });
-  })();
-</script>
-
 <script>
   (function () {
     var frames = {

@@ -373,7 +373,6 @@ function RecordList({ onOpen, offline, onOfflineChange }) {
               <span style={{ color: 'var(--admin-accent)', display: 'flex' }}><RI.table size={18} /></span>
               <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em' }}>Customer records</h1>
               <RLMono2 size="sm" muted>{model.key_pattern}</RLMono2>
-              {offline && <SimulatedBadge />}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
               <button type="button" onClick={() => onOpen('__models__')} title="Open the model definition" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>

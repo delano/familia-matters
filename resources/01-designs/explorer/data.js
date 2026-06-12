@@ -1,11 +1,10 @@
 /* explorer/data.js — seed for the Raw explorer.
  *
- * Plain JS (no JSX) → window.RAW. Mirrors the keys that the shared StateModel's
- * seed implies (prototype/seed.js: customer/api_key/session records, their
- * datatypes, the email_lookup + status_index indexes, the api_keys
- * participation). The explorer talks to the ONE shared backend (raw.*); this
- * seed is only the offline fallback and the shape-normalizer, exactly like the
- * other screens.
+ * Plain JS (no JSX) → window.RAW. Mirrors the keys the dev fixtures imply
+ * (customer/api_key/session records, their datatypes, the email_lookup +
+ * status_index indexes, the api_keys participation). The explorer talks to
+ * the ONE shared backend (raw.*); this seed is only the offline fallback and
+ * the shape-normalizer, exactly like the other screens.
  *
  * Everything here is SIMULATED — there is no real Redis/Valkey connection.
  */

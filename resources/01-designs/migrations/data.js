@@ -1,9 +1,8 @@
 /* migrations/data.js — seed + derivation helpers for the Migration cockpit.
  *
  * Plain JS (no JSX). Loaded with <script src> so window.MIG is available before
- * Babel runs. The seed mirrors the shared StateModel's migrations block
- * (prototype/seed.js → MIGRATIONS) so the screen degrades to identical data
- * when window.familiaBackend is unreachable.
+ * Babel runs. The seed mirrors the backend's migrations block so the screen
+ * degrades to identical data when window.familiaBackend is unreachable.
  *
  * The backend (the one shared StateModel) is the source of truth; these helpers
  * only (a) provide the offline fallback and (b) NORMALIZE / ENRICH whatever the
