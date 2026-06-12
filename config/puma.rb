@@ -35,6 +35,20 @@
 # so a production boot via rackup dies here with a targeted error instead
 # of silently listening on 0.0.0.0. (Rackup::Server is only defined when
 # the rackup executable is driving the boot.)
+#
+# VERSION COUPLING — re-verify this guard whenever rackup or puma is bumped
+# (verified against rackup 2.3.1 + puma 7.2.1). It depends on two behaviors
+# neither gem documents as a contract:
+#   1. rackup's puma handler loads config/puma.rb BEFORE overriding the
+#      bind. If a future rackup stops loading this file, the guard silently
+#      degrades to documentation and production rackup binds 0.0.0.0 again.
+#   2. `defined?(::Rackup::Server)` is true only when rackup drives the
+#      boot. If admin code ever `require`s 'rackup' during a genuine
+#      `bundle exec puma` production boot, this guard aborts it spuriously.
+# Re-verification (expect: rackup exits 1 with no listener; puma boots and
+# `lsof -iTCP:<port>` shows 127.0.0.1 only):
+#   RACK_ENV=production FAMILIA_ADMIN_PORT=<port> bundle exec rackup
+#   RACK_ENV=production FAMILIA_ADMIN_PORT=<port> bundle exec puma
 if ENV.fetch('RACK_ENV', 'development') == 'production' && defined?(::Rackup::Server)
   abort 'Familia Admin must boot via `bundle exec puma` in production, never ' \
         'rackup: rackup overrides the loopback bind in config/puma.rb and ' \
