@@ -2,12 +2,27 @@
 #
 # frozen_string_literal: true
 #
-# Single source of truth for backend setup: Familia connection + encryption,
-# the fixture models, and the admin code. Both config.ru (server) and the
-# Rakefile (seed/token tasks) require this so they share identical configuration
-# — same Valkey target, same encryption keys, same PASETO key resolution. That
-# shared state is what lets a token minted by `rake auth:token` verify against
-# the running server.
+# Single source of truth for backend setup. Two explicit entry points:
+#
+#   setup!(app_root)  — STANDALONE-DEV path. Configures the Familia connection
+#                       + encryption, loads the fixture models and the admin
+#                       code. Used by config.ru (server), the Rakefile
+#                       (seed/token tasks), and try/test_helper.rb so they
+#                       share identical configuration — same Valkey target,
+#                       same encryption keys, same PASETO key resolution. That
+#                       shared state is what lets a token minted by
+#                       `rake auth:token` verify against the running server.
+#
+#   setup_embedded!   — HOST-EMBEDDED path (admin running inside another app's
+#                       process, e.g. OneTimeSecret). The HOST owns Familia.uri
+#                       and Familia.config.encryption_keys; this path loads the
+#                       admin code only and ASSERTS — never sets — Familia
+#                       configuration. Overwriting the host's encryption keys
+#                       would make `reveal` return garbage on real customer
+#                       secrets, the single worst failure available here.
+#
+# The split is explicit by method name — a host app opts in by calling
+# setup_embedded! from its own boot — never inferred from the environment.
 
 require 'familia'
 
@@ -21,8 +36,11 @@ module Familia
 
       module_function
 
-      # Configure the Familia connection + encryption and load all model/admin
-      # code. Idempotent: safe to call from both config.ru and rake.
+      # STANDALONE-DEV path: configure the Familia connection + encryption and
+      # load all model/admin code. Idempotent: safe to call from both config.ru
+      # and rake. Never call this from inside a host app — it writes
+      # Familia.uri and the encryption keys, which the host owns. Use
+      # setup_embedded! there instead.
       def setup!(app_root)
         guard_production_keys!
         configure_connection!
@@ -30,6 +48,50 @@ module Familia
         load_models!(app_root)
         load_admin!
         true
+      end
+
+      # HOST-EMBEDDED path: load the admin code into a process whose Familia
+      # configuration (connection URI, encryption keys, key version) the HOST
+      # application already owns. Asserts that configuration exists; writes
+      # none of it. Does not load the dev fixture models (lib/models.rb is a
+      # dev fixture only — the host registers its own Horreum models).
+      #
+      # guard_production_keys! runs unchanged on this path too: the PASETO
+      # token key and the shared login passphrase are admin-owned secrets that
+      # gate admin access regardless of who configured Familia, and the guard
+      # must not be weaker on any path. (FAMILIA_ADMIN_ENCRYPTION_KEY is not
+      # consumed on this path — configure_encryption! is never called — but a
+      # dev-default value in a non-dev environment still signals a copy-pasted
+      # dev env, so the guard still refuses it.)
+      def setup_embedded!
+        guard_production_keys!
+        assert_host_encryption!
+        load_admin!
+        true
+      end
+
+      # Assert — never set — the host's Familia encryption configuration.
+      # Fail-closed: booting the admin without host-configured keys would
+      # surface as runtime errors on every encrypted-field access (or worse,
+      # invite a "configure them here" fix that clobbers the host's keys and
+      # corrupts decryption of existing data).
+      def assert_host_encryption!
+        keys = Familia.config.encryption_keys
+        if keys.nil? || keys.empty?
+          raise <<~MSG.strip
+            Familia::Admin::Boot.setup_embedded! requires the HOST application to have
+            already configured Familia.config.encryption_keys and current_key_version.
+            It refuses to set them itself: overwriting the host's keys would corrupt
+            decryption of existing encrypted fields. Configure Familia in the host boot
+            before calling setup_embedded!, or use Boot.setup!(app_root) for the
+            standalone dev server.
+          MSG
+        end
+
+        # Read-only validation of the host's key material/provider; raises
+        # Familia::EncryptionError if misconfigured (missing current version,
+        # invalid Base64 key, no provider). It writes nothing to Familia.config.
+        Familia::Encryption.validate_configuration!
       end
 
       # Fail-closed in any non-development environment that still carries the
@@ -93,12 +155,17 @@ module Familia
              "#{Familia::Admin::Passphrase::MIN_LENGTH} characters; a non-development boot will refuse it."
       end
 
+      # Standalone-dev only. Never reached from setup_embedded!: the host app
+      # owns Familia.uri.
       def configure_connection!
         # Customer/ApiKey live on db 0 (default); Session declares
         # `logical_database 1` in-model and Familia's connection chain routes it.
         Familia.uri = ENV.fetch('FAMILIA_URI', 'redis://127.0.0.1:6379')
       end
 
+      # Standalone-dev only. Never reached from setup_embedded!: the host app
+      # owns the encryption keys, and clobbering them breaks decryption of the
+      # host's existing encrypted data.
       def configure_encryption!
         Familia.configure do |config|
           config.encryption_keys     = { v1: ENV.fetch('FAMILIA_ADMIN_ENCRYPTION_KEY', ENCRYPTION_DEV_KEY) }
