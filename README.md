@@ -87,6 +87,96 @@ in `Procfile.example` cover the gotchas — most importantly that an unset
 passphrase makes every login fail with a generic "Authentication failed" while
 the server otherwise boots and runs normally.
 
+## Deploying to production
+
+Familia Admin runs as a **separate process** on the production host. It must
+never share the OTS public Puma: never mount the admin app into the public
+server, and never reuse the public server's listener. The public Puma binds
+`0.0.0.0`; the admin tool's destroy/repair/reveal surface, guarded by a
+single shared passphrase, must never ride along on a public bind.
+
+The listener is pinned in config, not operator memory: `config/puma.rb`
+hardcodes `tcp://127.0.0.1:<port>`. Only the port is tunable
+(`FAMILIA_ADMIN_PORT`, default `9292`); the bind host is deliberately not an
+env var, so no deployment mistake can expose the process beyond loopback.
+
+Production must boot with `bundle exec puma`, **never `rackup`**: rackup
+injects its own host/port defaults at Puma's highest config precedence,
+which discards the config-file bind and listens on `0.0.0.0:9292` when
+`RACK_ENV=production` (verified against rackup 2.3.1 + puma 7.2.1). In
+development rackup is fine — its dev default host is localhost.
+
+This rule is enforced, not just documented: rackup's puma handler loads
+`config/puma.rb` before clobbering its bind, and that file aborts the boot
+when `RACK_ENV=production` and rackup is driving (verified: production
+rackup exits 1 with a targeted error; no listener opens). The residual gap
+is explicit operator overrides — `puma -b/-p` flags outrank the config
+file, and a non-Puma server pointed at `config.ru` never loads it. Those
+stay procedural; owner: @delano (deployment runbook).
+
+Operators reach the tool through an SSH tunnel; SSH itself is reachable only
+over VPN via the jumphost. The network perimeter is SSH, and the passphrase
+login covers the remaining local-process threat on the host.
+
+### systemd unit
+
+Run the admin process under systemd as the OTS app user. Two placeholders
+must be substituted before the unit can start — both are deliberately
+strings systemd rejects verbatim, so an unedited unit fails loudly instead
+of booting the wrong app:
+
+- `<ADMIN_ROOT>` is the directory containing the **admin's** `config/puma.rb`
+  and `config.ru` — its final location inside the OTS tree is not settled
+  yet and lands with the OTS integration work (plan T2+). Keep both paths
+  absolute: relative names resolved against the OTS application root would
+  pick up the **host app's** `config/puma.rb` and `config.ru` and boot the
+  wrong server.
+- `<BUNDLE_BIN>` is the absolute path to `bundle` **as resolved for the
+  service user**: `sudo -u ots sh -lc 'command -v bundle'`. systemd does
+  not run login shells, so its default `PATH` never includes version-manager
+  shims — under rbenv/rvm/chruby, `/usr/bin/env bundle` fails (or worse,
+  resolves to a system Ruby that violates the `>= 3.2` pin). Use the shim's
+  absolute path (e.g. `/home/ots/.rbenv/shims/bundle`) or the manager's
+  exec wrapper.
+
+```ini
+# /etc/systemd/system/familia-admin.service
+[Unit]
+Description=Familia Admin (internal, loopback-only)
+After=network.target valkey.service
+
+[Service]
+Type=simple
+User=ots
+WorkingDirectory=<ADMIN_ROOT>
+Environment=RACK_ENV=production
+# FAMILIA_ADMIN_PASSPHRASE and friends belong in an EnvironmentFile
+# readable only by the service user, never in the unit itself.
+EnvironmentFile=/etc/familia-admin/env
+ExecStart=<BUNDLE_BIN> exec puma -C <ADMIN_ROOT>/config/puma.rb <ADMIN_ROOT>/config.ru
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Do not pass `-b`/`-p`/`-o` flags in the unit: explicit flags override
+`config/puma.rb`, and the bind must come from the config file.
+
+### SSH tunnel
+
+```bash
+# local machine (VPN + jumphost assumed by your ssh config)
+ssh -N -L 9292:127.0.0.1:9292 prod-host
+
+# then browse http://127.0.0.1:9292/  (-> /login)
+```
+
+The tunnel's local end is an ordinary loopback port on the operator's
+machine, so browser protections (SameSite cookies, the Origin guard) stay
+load-bearing — they are the defense against drive-by CSRF from other pages
+in the operator's browser.
+
 ## Status
 
 The design study is complete and a high-fidelity, interactive prototype is built

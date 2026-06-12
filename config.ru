@@ -13,7 +13,13 @@
 # The HTTP stack is assembled by Familia::Admin::RackApp.build so this server and
 # the contract suite (try/test_helper.rb) share an identical app.
 #
-# Boot:   bundle exec rackup           (or: bundle exec puma)
+# Boot:   bundle exec rackup           (dev only; binds localhost by default)
+#         bundle exec puma             (loads config/puma.rb: bind pinned to
+#                                       127.0.0.1, port via FAMILIA_ADMIN_PORT)
+#         Production must boot via puma, never rackup — rackup overrides the
+#         config-file bind with its own 0.0.0.0 production default;
+#         config/puma.rb aborts a production rackup boot for that reason.
+#         See README "Deploying to production".
 # Seed:   bundle exec rake db:seed
 # Login:  set FAMILIA_ADMIN_PASSPHRASE, npm run build, then open /  (-> /login)
 # Token:  bundle exec rake auth:token  (Bearer for curl/CI/MCP; browsers use /login)
