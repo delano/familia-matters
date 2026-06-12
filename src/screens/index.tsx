@@ -7,6 +7,7 @@
 import type React from 'react'
 
 import { PlaceholderScreen } from './PlaceholderScreen'
+import { RecordsScreen } from './records/RecordsScreen'
 
 export interface ScreenRoute {
   /** Route path, e.g. '/records'. */
@@ -23,13 +24,7 @@ export const SCREEN_ROUTES: readonly ScreenRoute[] = [
     path: '/records',
     slug: 'records',
     label: 'Records',
-    render: () => (
-      <PlaceholderScreen
-        name="Records"
-        slug="records"
-        description="Browse, inspect, and edit records for every model, driven entirely by the /_meta descriptor — model list, identifier field, columns, and per-record collections."
-      />
-    ),
+    render: () => <RecordsScreen />,
   },
   {
     path: '/models',
