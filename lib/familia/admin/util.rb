@@ -15,8 +15,10 @@ module Familia
     # safe{} POLICY (T4): an ops tool's job is telling the operator the truth
     # during an incident. A rescued exception is therefore LOGGED (warn, tagged
     # with the rescuing class, exception class + message) before degrading to
-    # the nil fallback — never silently swallowed. Two deliberate exceptions to
-    # this policy elsewhere in the codebase:
+    # the nil fallback — never silently swallowed. When the exception message
+    # may echo untrusted request input, callers pass redact_message: true and
+    # only the class is logged. Two deliberate exceptions to this policy
+    # elsewhere in the codebase:
     #   * Descriptor#safe stays quiet by design: /_meta is pure cacheable
     #     metadata and one misbehaving model must not spam stderr on every
     #     descriptor build (see descriptor.rb).
@@ -29,11 +31,18 @@ module Familia
       # Run the block; on StandardError log a tagged line to stderr and return
       # nil so the response degrades gracefully instead of 500ing. The optional
       # context string narrows the tag for hot spots (e.g. 'body_json').
-      def safe(context = nil)
+      #
+      # redact_message: when the exception message may echo untrusted input
+      # (JSON::ParserError quotes the first ~32 chars of the raw body — on the
+      # login route that is the passphrase), log ONLY the exception class.
+      # "No secrets in any response, error, or log" (sessions.rb) wins over
+      # message detail here.
+      def safe(context = nil, redact_message: false)
         yield
       rescue StandardError => e
-        where = [self.class.name, context].compact.join(' ')
-        warn("[familia-admin #{where}] safe{} rescued #{e.class}: #{e.message}")
+        where  = [self.class.name, context].compact.join(' ')
+        detail = redact_message ? ' (message redacted: may echo request body)' : ": #{e.message}"
+        warn("[familia-admin #{where}] safe{} rescued #{e.class}#{detail}")
         nil
       end
 
@@ -51,12 +60,14 @@ module Familia
       # so mutating actions read it here. A malformed body degrades to {} (which
       # drives the bad_request path downstream) — and the parse failure is
       # logged via safe{} so "mysteriously empty fields" has a stderr trace.
+      # redact_message: a ParserError message quotes the raw body, which on the
+      # login route is the passphrase and on mutations is customer field data.
       def body_json
         @body_json ||= begin
           body = @req.body
           raw = body ? body.read : ''
           body.rewind if body.respond_to?(:rewind)
-          raw.to_s.empty? ? {} : (safe('body_json') { JSON.parse(raw) } || {})
+          raw.to_s.empty? ? {} : (safe('body_json', redact_message: true) { JSON.parse(raw) } || {})
         end
       end
     end

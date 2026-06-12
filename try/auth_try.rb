@@ -418,3 +418,22 @@ log = @captured.string
 [status, body['role'], log.include?('[familia-admin Admin::Sessions audit!]'),
  log.include?('RuntimeError'), log.include?('audit sink down (T4 try)')]
 #=> [200, "admin", true, true, true]
+
+## a malformed login body logs the exception CLASS only — JSON::ParserError's
+## message quotes the raw body, i.e. the passphrase, so it is redacted; the
+## request still degrades gracefully to the generic 401
+reset_and_seed!
+clear_cookies
+@captured = StringIO.new
+@orig_stderr = $stderr
+$stderr = @captured
+post '/admin/api/auth/login', '{"passphrase": "hunter2-supersecret',
+     { 'CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json',
+       'REMOTE_ADDR' => '127.0.0.1' }
+$stderr = @orig_stderr
+log = @captured.string
+[last_response.status, JSON.parse(last_response.body)['error'],
+ log.include?('[familia-admin Admin::Sessions body_json]'),
+ log.include?('JSON::ParserError'), log.include?('redacted'),
+ log.include?('hunter2'), log.include?('supersec'), log.include?('passphrase')]
+#=> [401, "invalid_passphrase", true, true, true, false, false, false]
