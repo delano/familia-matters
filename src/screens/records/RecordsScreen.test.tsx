@@ -27,7 +27,7 @@ const CLAIMS: Claims = {
   exp: Math.floor(Date.now() / 1000) + 3600,
 }
 
-/** Two-model descriptor mirroring the dev fixtures' shape (customer/session). */
+/** Two-model descriptor matching the dev fixtures' shape (customer/session). */
 const META: AppDescriptor = {
   generated_at: 1781000000,
   familia_version: '2.10.1',
@@ -185,7 +185,7 @@ describe('descriptor-driven listing (AC3: two models, zero hardcoding)', () => {
   })
 })
 
-describe('failure is an explicit error state (AC2: no seed, no mirror)', () => {
+describe('failure is an explicit error state (AC2: no seed, no offline fallback)', () => {
   it('an unreachable backend on /_meta renders ErrorState, nothing else', async () => {
     renderRecords(() => ({ ok: false, reason: 'error' }))
 

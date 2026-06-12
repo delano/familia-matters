@@ -2,7 +2,7 @@
 //
 // The descriptor helpers must hold up against BOTH a fully-populated model and
 // a compact-omitted one (the server drops any key whose reflection failed), so
-// the fixtures here mirror the dev /_meta extremes: customer (everything) and
+// the fixtures here match the dev /_meta extremes: customer (everything) and
 // an audit_log-shaped model (almost nothing).
 
 import { describe, expect, it } from 'vitest'
