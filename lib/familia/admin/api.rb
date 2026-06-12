@@ -2,6 +2,7 @@
 
 require 'json'
 require_relative 'descriptor'
+require_relative 'util'
 
 # Admin::API
 #
@@ -20,6 +21,8 @@ require_relative 'descriptor'
 # authenticated context from env['otto.strategy_result'].
 module Admin
   class API
+    include Familia::Admin::Util
+
     PAGE_DEFAULT = 50
     PAGE_MAX     = 500
 
@@ -712,17 +715,7 @@ module Admin
       %w[1 true yes on].include?(v.to_s.downcase)
     end
 
-    # Parse the JSON request body once. The instance-method route handler does NOT
-    # fold the body into @req.params (only the logic-class handler does), so
-    # mutating actions read it here. Returns {} on any parse failure.
-    def body_json
-      @body_json ||= begin
-        body = @req.body
-        raw = body ? body.read : ''
-        body.rewind if body.respond_to?(:rewind)
-        raw.to_s.empty? ? {} : (JSON.parse(raw) rescue {})
-      end
-    end
+    # body_json comes from Familia::Admin::Util (shared with Admin::Sessions).
 
     # The {fields:{...}} envelope for create/update.
     def body_fields
@@ -786,14 +779,9 @@ module Admin
       entry
     end
 
-    # JSON helper: set the status and RETURN the bare hash. Otto's JSONHandler
-    # serializes a returned Hash verbatim; we must NOT write @res.body here or it
-    # would be double-encoded. base.rb#ensure_status_set only fills an unset/zero
-    # status, so a pre-set 404/400/409 is preserved.
-    def json(payload, status: 200)
-      @res.status = status
-      payload
-    end
+    # json (status + bare-hash return) and safe (logging exception guard) come
+    # from Familia::Admin::Util; see util.rb for the Otto JSONHandler contract
+    # and the T4 truth-telling policy.
 
     def not_found(what)
       json({ error: 'not_found', resource: what }, status: 404)
@@ -801,12 +789,6 @@ module Admin
 
     def bad_request(msg)
       json({ error: 'bad_request', message: msg }, status: 400)
-    end
-
-    def safe
-      yield
-    rescue StandardError
-      nil
     end
 
     # ----- SSE plumbing ----------------------------------------------------
