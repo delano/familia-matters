@@ -178,12 +178,20 @@ export function createAdminApi(opts?: AdminApiOptions): AdminApi {
 
     if (res.status === 401) return { ok: false, reason: 'unauthenticated' }
     if (res.status === 403) {
-      return { ok: false, reason: 'forbidden', message: errorMessage(res.body) }
+      return {
+        ok: false,
+        reason: 'forbidden',
+        message: errorMessage(res.body),
+        body: res.body,
+      }
     }
     if (res.status >= 200 && res.status < 300) {
       return { ok: true, data: res.body as T }
     }
-    return { ok: false, reason: 'error', status: res.status }
+    // Carry the parsed body: API error contracts are status + body.error
+    // (400 scan_unavailable, 409 record_exists, ...) and the UI must render
+    // them as the specific refusal they are, never a generic failure.
+    return { ok: false, reason: 'error', status: res.status, body: res.body }
   }
 
   return { login, getSession, logout, request }

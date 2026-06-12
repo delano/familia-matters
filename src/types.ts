@@ -62,10 +62,22 @@ export type ApiOutcome<T> =
   | { ok: true; data: T }
   /** 401: session expired/absent -> trigger re-auth (preserve location). */
   | { ok: false; reason: 'unauthenticated' }
-  /** 403: authorization denied -> report without logging out. */
-  | { ok: false; reason: 'forbidden'; message?: string }
-  /** Other non-2xx or network/parse failure. */
-  | { ok: false; reason: 'error'; status?: number }
+  /**
+   * 403: authorization denied -> report without logging out. `message` is the
+   * server's `body.error` string (e.g. `read_only`, `command_blocked`); `body`
+   * is the full parsed JSON body so callers can read auxiliary fields such as
+   * `required_tier` without re-fetching.
+   */
+  | { ok: false; reason: 'forbidden'; message?: string; body?: unknown }
+  /**
+   * Other non-2xx or network/parse failure. `status` is absent exactly when
+   * the failure was network-level or the body was unparseable — that absence
+   * is the "backend unreachable" signal. `body` carries the parsed JSON body
+   * when one existed, so status-bearing error contracts (400
+   * `scan_unavailable`, 409 `record_exists`, ...) reach the UI intact instead
+   * of collapsing into an anonymous failure.
+   */
+  | { ok: false; reason: 'error'; status?: number; body?: unknown }
 
 // ---------------------------------------------------------------------------
 // Login form state (src/components/Login.tsx, ReauthOverlay.tsx)
