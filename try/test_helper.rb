@@ -38,6 +38,11 @@ ENV['RACK_ENV'] = 'development'
 # before boot; Passphrase reads ENV at call time. ||= so a real env value wins.
 ENV['FAMILIA_ADMIN_PASSPHRASE'] ||= 'test-passphrase-correct-horse-battery'
 
+# Deliberately the STANDALONE-DEV path (setup!), matching config.ru and rake:
+# it configures the Familia connection/encryption and loads the fixture models
+# this harness seeds. The HOST-EMBEDDED path (setup_embedded!) is exercised in
+# isolated subprocesses by boot_try.rb — it must never run in-process here,
+# because this process IS the standalone app, not a host-configured one.
 require 'familia/admin/boot'
 Familia::Admin::Boot.setup!(APP_ROOT)
 
