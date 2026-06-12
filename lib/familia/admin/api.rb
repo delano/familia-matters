@@ -564,7 +564,10 @@ module Admin
     # return nil and JSONHandler would emit {success:true} with a 404 status).
     def resolve_model!
       name = param(:model)
-      safe { Familia.member_by_config_name(name) } || safe { Familia.resolve_class(name) }
+      # resolve_class snake_cases the name and looks it up in Familia.members;
+      # member_by_config_name is private in Familia 2.10, so calling it here
+      # only produced a NoMethodError that safe{} would log on every request.
+      safe { Familia.resolve_class(name) }
     end
 
     # Admin serializer: all persistent fields, encrypted masked, transient omitted.
@@ -650,7 +653,7 @@ module Admin
     # role:admin (not permission:reveal_secrets) route is the inconsistency we
     # close here.
     def mask_encrypted_fields!(hash, model_name)
-      klass = safe { Familia.member_by_config_name(model_name) } || safe { Familia.resolve_class(model_name) }
+      klass = safe { Familia.resolve_class(model_name) }
       return unless klass
       Array(safe { klass.persistent_fields }).each do |f|
         ft = safe { klass.field_types[f] }
