@@ -22,6 +22,15 @@ module Familia
     # `safe{}`, so an outage degrades the limiter to fail-open — login stays
     # available, unthrottled — rather than locking operators out. The degraded path
     # is logged so it is observable.
+    #
+    # SWITCH (T4): `FAMILIA_ADMIN_LOGIN_LIMITER=off` disables the limiter as a
+    # no-op — `locked?` never locks and failures are not counted (so flipping it
+    # back on cannot instantly lock a source out of stale counters). Default is
+    # ON. The off switch exists for the SSH-tunnel deployment, where every
+    # client arrives as 127.0.0.1: one fat-fingered teammate would otherwise
+    # lock out ALL operators for the window, and any local process could DoS
+    # the login deliberately. Only the literal token "off" (case-insensitive)
+    # disables; any other value keeps the limiter on (fail-safe for typos).
     module RateLimit
       # Failed attempts within the window before a source is locked.
       FAIL_LIMIT_DEFAULT = 5
@@ -29,6 +38,13 @@ module Familia
       WINDOW_SECONDS_DEFAULT = 900
 
       module_function
+
+      # Whether the limiter is active. See SWITCH note above: only the literal
+      # "off" disables it; unset/empty/anything else is ON.
+      # @return [Boolean]
+      def enabled?
+        ENV['FAMILIA_ADMIN_LOGIN_LIMITER'].to_s.strip.downcase != 'off'
+      end
 
       def fail_limit
         int_env('FAMILIA_ADMIN_LOGIN_FAIL_LIMIT', FAIL_LIMIT_DEFAULT)
@@ -39,23 +55,32 @@ module Familia
       end
 
       # Whether this source is currently locked out. Read-only (no side effects),
-      # so it is safe to call before verifying the passphrase.
+      # so it is safe to call before verifying the passphrase. Never locked when
+      # the limiter is switched off.
       # @return [Boolean]
       def locked?(ip)
+        return false unless enabled?
+
         current(ip) >= fail_limit
       end
 
       # Seconds until the current lockout window elapses (0 when not locked).
       # @return [Integer]
       def retry_after(ip)
+        return 0 unless enabled?
+
         ttl = safe { Familia.dbclient.ttl(redis_key(ip)) }
         ttl.is_a?(Integer) && ttl.positive? ? ttl : 0
       end
 
       # Record a failed attempt; returns the new failure count. Sets the window TTL
       # on the first failure so the lockout is a fixed window from first failure.
+      # A no-op (0) when the limiter is switched off — failures are deliberately
+      # NOT counted, so re-enabling the limiter starts from a clean slate.
       # @return [Integer]
       def record_failure(ip)
+        return 0 unless enabled?
+
         key = redis_key(ip)
         n = safe { Familia.dbclient.incr(key) } || 0
         return n unless n.positive?

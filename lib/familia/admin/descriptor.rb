@@ -203,6 +203,12 @@ module Familia
       # ----- util ------------------------------------------------------------
 
       # Swallow reflection errors so one misbehaving model never breaks /_meta.
+      #
+      # QUIET BY DESIGN (T4): unlike Familia::Admin::Util#safe (which logs every
+      # rescued exception), this one stays silent. /_meta is pure, cacheable
+      # metadata rebuilt frequently; a partially-featured model would otherwise
+      # emit the same stderr line on every descriptor build. Request-path
+      # failures (the ones that matter mid-incident) go through Util#safe.
       def safe
         yield
       rescue StandardError
