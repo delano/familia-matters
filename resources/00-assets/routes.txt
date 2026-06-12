@@ -72,6 +72,11 @@ POST   /admin/api/migrations/run                          Admin::API#run_migrati
 POST   /admin/api/migrations/rollback                     Admin::API#rollback         response=json auth=permission:run_migrations csrf=exempt
 
 # ============================================================
+# AUDIT  (operator-facing view of the append-only audit trail)
+# ============================================================
+GET    /admin/api/audit                                   Admin::API#list_audit      response=json auth=role:admin
+
+# ============================================================
 # RAW EXPLORER  (the schemaless layer; guarded)
 # ============================================================
 GET    /admin/api/raw/keys                                Admin::API#scan_keys       response=json auth=role:admin
