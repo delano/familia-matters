@@ -29,13 +29,12 @@
 # runs on a different port, also set FAMILIA_ADMIN_BACKEND=http://127.0.0.1:XXXX
 # in .env so the proxy targets it.
 #
-# Note: in dev you land on the session shell after login, not the prototype.
-# The post-login handoff to the prototype only fires when the URL carries
-# ?return_to=, which the Ruby gate appends in the served flow. To exercise the
-# full gateway flow, skip Vite: `pnpm build && pnpm build:prototypes`, then
-# open http://127.0.0.1:9292/ against the Ruby server alone. (build emits the
-# /login SPA; build:prototypes emits the post-login design pages the backend
-# serves at the web root — without it those pages 404 on /dist/*.js.)
+# Note: `pnpm dev` serves the SPA on Vite's own port and proxies /admin/api to
+# the Ruby backend. To exercise the full served gateway flow — the Ruby gate
+# redirecting an unauthenticated browser to /login, then back to the
+# cookie-gated web root after login — skip Vite: run `pnpm build`, then open
+# http://127.0.0.1:9292/ against the Ruby server alone. `pnpm build` emits the
+# single SPA the backend serves at both /login and the web root.
 
 # valkey: valkey-server --port 6379
 backend: bundle exec rackup

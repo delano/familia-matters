@@ -1,0 +1,537 @@
+/*
+ * src/screens/explorer/explorer.css — co-located styles for the Explorer screen.
+ *
+ * Uses the shared design tokens (var(--admin-*), var(--otto-*)) and reuses the
+ * shared classes from src/styles.css (.data-table, .screen-loading, .spinner,
+ * .error-state, .cell-mono). Dark-first, dense; the pink accent is reserved for
+ * the two primary actions (Scan, Run).
+ */
+
+.explorer-screen code {
+  font-family: var(--admin-mono);
+  font-size: var(--admin-font-size-sm);
+}
+
+/* Layout: left search pane | right tabbed pane, console pinned below. */
+.explorer-panes {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: var(--otto-space-md);
+  align-items: start;
+  margin-bottom: var(--otto-space-md);
+}
+
+/* ---- Shared controls ---------------------------------------------------- */
+.explorer-screen input[type='text'],
+.explorer-screen select {
+  height: 28px;
+  padding: 0 var(--otto-space-sm);
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  font-family: var(--admin-mono);
+  font-size: var(--admin-font-size-sm);
+}
+
+.explorer-mono-input {
+  width: 100%;
+}
+
+.explorer-screen button:not(.error-state-retry) {
+  padding: var(--otto-space-xs) var(--otto-space-sm);
+  background: transparent;
+  color: var(--admin-text);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  font-size: var(--admin-font-size-sm);
+  cursor: pointer;
+  transition: var(--otto-transition-fast);
+}
+
+.explorer-screen button:not(.error-state-retry):hover:not(:disabled) {
+  border-color: var(--admin-text-muted);
+}
+
+.explorer-screen button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.explorer-screen .explorer-primary-btn {
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.explorer-screen .explorer-primary-btn:hover:not(:disabled) {
+  background: var(--admin-accent-hover);
+}
+
+.explorer-field-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--admin-text-muted);
+}
+
+.explorer-note {
+  color: var(--admin-text-muted);
+  font-size: var(--admin-font-size-sm);
+  font-style: italic;
+}
+
+/* ---- Left pane: key browser -------------------------------------------- */
+.explorer-keybrowser {
+  display: flex;
+  flex-direction: column;
+  gap: var(--otto-space-sm);
+  border: var(--admin-border);
+  border-radius: var(--admin-radius);
+  padding: var(--otto-space-sm);
+  background: var(--admin-surface);
+  min-width: 0;
+}
+
+.explorer-keysearch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--otto-space-xs);
+  padding-bottom: var(--otto-space-sm);
+  border-bottom: 1px solid var(--admin-border-color);
+}
+
+.explorer-keysearch-row {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-sm);
+}
+
+.explorer-keysearch-row .explorer-primary-btn {
+  margin-left: auto;
+}
+
+.explorer-idle,
+.explorer-empty {
+  color: var(--admin-text-muted);
+  font-size: var(--admin-font-size-sm);
+  margin: 0;
+}
+
+.explorer-scan-count {
+  margin: 0;
+  font-family: var(--admin-mono);
+  font-size: 11px;
+  color: var(--admin-text-muted);
+}
+
+.explorer-scan-count strong {
+  color: var(--admin-text);
+  font-weight: 600;
+}
+
+.explorer-key-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.explorer-key-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-auto-rows: auto;
+  gap: 2px var(--otto-space-sm);
+  width: 100%;
+  text-align: left;
+  padding: var(--otto-space-xs) var(--otto-space-sm) !important;
+  border: none !important;
+  border-bottom: 1px solid var(--admin-border-color) !important;
+  border-left: 2px solid transparent !important;
+  border-radius: 0 !important;
+  background: transparent;
+}
+
+.explorer-key-row--active {
+  border-left-color: var(--admin-accent) !important;
+  background: var(--admin-surface-raised);
+}
+
+.explorer-key-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  color: var(--admin-text);
+}
+
+.explorer-type-chip {
+  grid-row: 1 / 2;
+  justify-self: end;
+  padding: 1px var(--otto-space-xs);
+  font-family: var(--admin-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--admin-text-muted);
+  background: var(--admin-bg);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+}
+
+.explorer-type-chip--zset {
+  color: var(--admin-accent);
+}
+
+.explorer-type-chip--hash {
+  color: var(--admin-status-preview);
+}
+
+.explorer-key-ttl {
+  font-family: var(--admin-mono);
+  font-size: 10px;
+  color: var(--admin-text-muted);
+}
+
+.explorer-model-badge {
+  grid-column: 1 / 3;
+  justify-self: start;
+  padding: 1px var(--otto-space-xs);
+  font-family: var(--admin-mono);
+  font-size: 10px;
+  color: var(--admin-accent);
+  background: rgba(232, 121, 249, 0.1);
+  border: 1px solid rgba(232, 121, 249, 0.3);
+  border-radius: var(--otto-radius-sm);
+}
+
+.explorer-loadmore {
+  width: 100%;
+  justify-content: center;
+}
+
+/* ---- Right pane: tabs + body ------------------------------------------- */
+.explorer-right {
+  display: flex;
+  flex-direction: column;
+  border: var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+  min-width: 0;
+}
+
+.explorer-tabs {
+  display: flex;
+  gap: var(--otto-space-xs);
+  padding: var(--otto-space-xs) var(--otto-space-sm) 0;
+  border-bottom: 1px solid var(--admin-border-color);
+}
+
+.explorer-screen .explorer-tab {
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  background: transparent;
+  color: var(--admin-text-muted);
+  padding: var(--otto-space-xs) var(--otto-space-sm) !important;
+}
+
+.explorer-screen .explorer-tab--active {
+  color: var(--admin-text);
+  border-bottom-color: var(--admin-accent) !important;
+  font-weight: 600;
+}
+
+.explorer-right-body {
+  padding: var(--otto-space-md);
+  min-width: 0;
+}
+
+/* ---- Inspector ---------------------------------------------------------- */
+.explorer-inspector-idle {
+  margin: 0;
+  color: var(--admin-text-muted);
+  font-size: var(--admin-font-size-sm);
+}
+
+.explorer-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--otto-space-md);
+}
+
+.explorer-inspector-head {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-sm);
+}
+
+.explorer-inspector-key {
+  font-size: 14px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.explorer-statcells {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--admin-border-color);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  overflow: hidden;
+}
+
+.explorer-statcell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--otto-space-sm);
+  background: var(--admin-bg);
+}
+
+.explorer-statcell-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--admin-text-muted);
+}
+
+.explorer-statcell-value {
+  font-family: var(--admin-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+.explorer-model-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-md);
+  padding: var(--otto-space-sm) var(--otto-space-md);
+  background: rgba(232, 121, 249, 0.1);
+  border: 1px solid rgba(232, 121, 249, 0.3);
+  border-radius: var(--otto-radius-sm);
+  font-size: var(--admin-font-size-sm);
+}
+
+.explorer-model-banner button {
+  margin-left: auto;
+  flex: none;
+}
+
+/* ---- Value viewers ------------------------------------------------------ */
+.explorer-viewer-title {
+  margin: 0 0 var(--otto-space-sm);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--admin-text-muted);
+}
+
+.explorer-string-value,
+.explorer-raw-value,
+.explorer-console-result {
+  margin: 0;
+  padding: var(--otto-space-md);
+  background: var(--admin-bg);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  font-family: var(--admin-mono);
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-text);
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.explorer-list-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  overflow: hidden;
+}
+
+.explorer-list-items li {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: var(--otto-space-sm);
+  padding: var(--otto-space-xs) var(--otto-space-sm);
+  background: var(--admin-bg);
+  border-top: 1px solid var(--admin-border-color);
+}
+
+.explorer-list-items li:first-child {
+  border-top: none;
+}
+
+.explorer-list-index {
+  font-family: var(--admin-mono);
+  font-size: 11px;
+  color: var(--admin-text-muted);
+  text-align: right;
+}
+
+.explorer-set-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--otto-space-xs);
+}
+
+.explorer-set-tag {
+  padding: 2px var(--otto-space-sm);
+  border: var(--admin-border);
+  border-radius: 9999px;
+  background: var(--admin-bg);
+  font-family: var(--admin-mono);
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-text);
+}
+
+.explorer-hash {
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  overflow: hidden;
+}
+
+.explorer-hash-row {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: var(--otto-space-md);
+  padding: var(--otto-space-xs) var(--otto-space-sm);
+  background: var(--admin-bg);
+  border-top: 1px solid var(--admin-border-color);
+}
+
+.explorer-hash-row:first-child {
+  border-top: none;
+}
+
+.explorer-hash-field {
+  color: var(--admin-text-muted);
+}
+
+.explorer-hash-value {
+  color: var(--admin-text);
+  word-break: break-all;
+}
+
+.explorer-hash-value--concealed {
+  color: var(--admin-status-caution);
+}
+
+/* ---- Server info -------------------------------------------------------- */
+.explorer-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--otto-space-md);
+}
+
+.explorer-info-title {
+  margin: 0 0 var(--otto-space-xs);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--admin-text-muted);
+}
+
+.explorer-info-rows {
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  overflow: hidden;
+}
+
+.explorer-info-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--otto-space-md);
+  padding: var(--otto-space-xs) var(--otto-space-sm);
+  background: var(--admin-bg);
+  border-top: 1px solid var(--admin-border-color);
+  align-items: baseline;
+}
+
+.explorer-info-row:first-child {
+  border-top: none;
+}
+
+.explorer-info-key {
+  color: var(--admin-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.explorer-info-val {
+  color: var(--admin-text);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ---- Command console ---------------------------------------------------- */
+.explorer-console {
+  border: var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+}
+
+.explorer-console-head {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-sm);
+  padding: var(--otto-space-sm) var(--otto-space-md);
+  border-bottom: 1px solid var(--admin-border-color);
+}
+
+.explorer-console-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--admin-text-muted);
+}
+
+.explorer-console-note {
+  font-size: 11px;
+  color: var(--admin-text-muted);
+}
+
+.explorer-console-history {
+  list-style: none;
+  margin: 0;
+  padding: var(--otto-space-sm) var(--otto-space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--otto-space-sm);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.explorer-console-entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--otto-space-xs);
+}
+
+.explorer-console-echo {
+  color: var(--admin-accent);
+}
+
+.explorer-console-input {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-sm);
+  padding: var(--otto-space-sm) var(--otto-space-md);
+}
+
+.explorer-console-prompt {
+  font-family: var(--admin-mono);
+  font-size: 14px;
+  color: var(--admin-accent);
+}

@@ -1,0 +1,251 @@
+/*
+ * src/screens/models/models.css — co-located styles for the Models schema
+ * browser. Reuses the shared classes from src/styles.css (.data-table,
+ * .screen-title, .screen-loading, .spinner, .error-state, .cell-mono,
+ * .cell-actions) and only adds the models-specific layout. Every colour, space,
+ * radius, and font here is a CSS custom property defined in src/styles.css —
+ * no new tokens, no restyling of the shared classes.
+ */
+
+.models-screen code {
+  font-family: var(--admin-mono);
+  font-size: var(--admin-font-size-sm);
+}
+
+/* Local buttons match the records-screen affordance (the shared button rules
+ * in styles.css are scoped to .records-screen / .record-detail). */
+.models-screen button {
+  padding: var(--otto-space-xs) var(--otto-space-sm);
+  background: transparent;
+  color: var(--admin-text);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  font-size: var(--admin-font-size-sm);
+  cursor: pointer;
+  transition: var(--otto-transition-fast);
+}
+
+.models-screen button:hover:not(:disabled) {
+  border-color: var(--admin-text-muted);
+}
+
+.models-screen button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- List view ------------------------------------------------------- */
+.models-context {
+  margin: 0 0 var(--otto-space-md);
+  padding: var(--otto-space-sm) var(--otto-space-md);
+  background: var(--admin-surface);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  color: var(--admin-text-muted);
+  font-size: var(--admin-font-size-sm);
+}
+
+/* Scoped to the Models screen so it can't bleed onto other screens' shared
+ * .data-table usage (this stylesheet is bundled globally). */
+.models-screen .cell-num {
+  text-align: right;
+}
+
+.models-muted {
+  color: var(--admin-text-muted);
+}
+
+.models-db-chip {
+  margin-left: var(--otto-space-sm);
+  padding: 1px var(--otto-space-xs);
+  font-family: var(--admin-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+  background: var(--admin-bg);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+}
+
+/* ---- Detail view ----------------------------------------------------- */
+.model-back {
+  margin-bottom: var(--otto-space-sm);
+}
+
+.model-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--otto-space-sm);
+  margin-bottom: var(--otto-space-md);
+}
+
+.model-title {
+  margin: 0;
+  font-size: 16px;
+}
+
+.models-keypattern {
+  padding: 1px var(--otto-space-xs);
+  color: var(--admin-text-muted);
+  background: var(--admin-surface);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+}
+
+.model-head-actions {
+  display: inline-flex;
+  gap: var(--otto-space-sm);
+  margin-left: auto;
+}
+
+.model-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--otto-space-xs);
+  margin-bottom: var(--otto-space-md);
+  border-bottom: var(--admin-border);
+}
+
+.models-screen .model-tab {
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--admin-text-muted);
+  padding: var(--otto-space-xs) var(--otto-space-sm);
+}
+
+.models-screen .model-tab:hover:not(:disabled) {
+  border-bottom-color: var(--admin-border-color);
+  color: var(--admin-text);
+}
+
+.models-screen .model-tab--active {
+  color: var(--admin-text);
+  border-bottom-color: var(--admin-accent);
+  font-weight: 600;
+}
+
+.model-tab-count {
+  margin-left: var(--otto-space-xs);
+  padding: 0 var(--otto-space-xs);
+  font-family: var(--admin-mono);
+  font-size: 11px;
+  color: var(--admin-text-muted);
+  background: var(--admin-surface);
+  border-radius: var(--otto-radius-sm);
+}
+
+.model-section {
+  margin-bottom: var(--otto-space-lg);
+}
+
+.model-section-title {
+  margin: 0 0 var(--otto-space-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--admin-text-muted);
+}
+
+.models-none {
+  margin: 0;
+  color: var(--admin-text-muted);
+  font-style: italic;
+  font-size: var(--admin-font-size-sm);
+}
+
+.models-subtle {
+  margin: var(--otto-space-xs) 0 0;
+  color: var(--admin-text-muted);
+  font-size: 11px;
+}
+
+/* Overview facts grid */
+.model-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1px;
+  margin: 0;
+  background: var(--admin-border-color);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  overflow: hidden;
+}
+
+.model-fact {
+  display: grid;
+  gap: var(--otto-space-xs);
+  padding: var(--otto-space-sm) var(--otto-space-md);
+  background: var(--admin-bg);
+}
+
+.model-fact dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--admin-text-muted);
+}
+
+.model-fact dd {
+  margin: 0;
+  color: var(--admin-text);
+}
+
+/* Chips */
+.models-chiprow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--otto-space-sm);
+}
+
+.models-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--otto-space-sm);
+  font-family: var(--admin-mono);
+  font-size: 11px;
+  color: var(--admin-text-muted);
+  background: var(--admin-surface);
+  border: var(--admin-border);
+  border-radius: 9999px;
+}
+
+.models-chip--healthy {
+  color: var(--admin-status-healthy);
+  border-color: var(--admin-status-healthy);
+}
+
+.models-chip--caution {
+  color: var(--admin-status-caution);
+  border-color: var(--admin-status-caution);
+}
+
+.models-chip--broken {
+  color: var(--admin-status-broken);
+  border-color: var(--admin-status-broken);
+}
+
+.models-chip--preview {
+  color: var(--admin-status-preview);
+  border-color: var(--admin-status-preview);
+}
+
+.models-id-marker {
+  color: var(--admin-accent);
+}
+
+/* Raw descriptor JSON */
+.model-json {
+  margin: var(--otto-space-sm) 0 var(--otto-space-md);
+  padding: var(--otto-space-md);
+  background: var(--admin-bg);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  font-family: var(--admin-mono);
+  font-size: var(--admin-font-size-sm);
+  line-height: 1.5;
+  color: var(--admin-text);
+  overflow-x: auto;
+  white-space: pre;
+}

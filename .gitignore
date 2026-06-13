@@ -2,7 +2,8 @@
 **/.DS_Store
 node_modules/
 dist/
-resources/01-designs/dist/
+# Transient git worktrees created for background agents.
+.claude/worktrees/
 # Local dev process configs (copied from Procfile.example) and the .env the
 # process managers load — .env may hold FAMILIA_ADMIN_PASSPHRASE.
 Procfile

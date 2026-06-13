@@ -1,0 +1,589 @@
+/* src/screens/integrity/integrity.css
+ *
+ * Co-located styles for the Integrity screen, built ENTIRELY from the shared
+ * design tokens (var(--admin-*), var(--otto-space-*)) so the screen tracks the
+ * app theme (dark-first, dense). Shared classes (.data-table, .screen-title,
+ * .screen-loading, .spinner, .error-state) are reused, not re-declared.
+ */
+
+.integrity-screen code {
+  font-family: var(--admin-mono);
+  font-size: var(--admin-font-size-sm);
+}
+
+.integrity-content {
+  display: grid;
+  gap: var(--otto-space-md);
+}
+
+/* Model picker bar (matches the records modelbar conventions). */
+.integrity-modelbar {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-sm);
+  margin-bottom: var(--otto-space-md);
+}
+
+.integrity-modelbar-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--admin-text-muted);
+}
+
+.integrity-screen select {
+  height: 28px;
+  padding: 0 var(--otto-space-sm);
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  font-family: var(--admin-mono);
+  font-size: var(--admin-font-size-sm);
+}
+
+/* Buttons */
+.integrity-btn {
+  padding: var(--otto-space-xs) var(--otto-space-sm);
+  background: transparent;
+  color: var(--admin-text);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  font-size: var(--admin-font-size-sm);
+  cursor: pointer;
+  transition: var(--otto-transition-fast);
+}
+
+.integrity-btn:hover:not(:disabled) {
+  border-color: var(--admin-text-muted);
+}
+
+.integrity-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.integrity-btn-primary {
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.integrity-btn-primary:hover:not(:disabled) {
+  background: var(--admin-accent-hover);
+}
+
+/* Header */
+.integrity-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--otto-space-md);
+}
+
+.integrity-header-info {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--otto-space-md);
+}
+
+.integrity-header-meta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--otto-space-xs);
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-text-muted);
+}
+
+.integrity-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-sm);
+}
+
+.integrity-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--otto-space-xs);
+  font-size: var(--admin-font-size-base);
+  font-weight: 600;
+}
+
+.integrity-incomplete {
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-status-caution);
+}
+
+/* Severity dots */
+.integrity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  display: inline-block;
+  flex: none;
+}
+
+.integrity-dot-healthy {
+  background: var(--admin-status-healthy);
+}
+.integrity-dot-caution {
+  background: var(--admin-status-caution);
+}
+.integrity-dot-broken {
+  background: var(--admin-status-broken);
+}
+.integrity-dot-preview {
+  background: var(--admin-status-preview);
+}
+.integrity-dot-neutral {
+  background: var(--admin-status-neutral);
+}
+
+.integrity-status-healthy {
+  color: var(--admin-status-healthy);
+}
+.integrity-status-caution {
+  color: var(--admin-status-caution);
+}
+.integrity-status-broken {
+  color: var(--admin-status-broken);
+}
+.integrity-status-preview {
+  color: var(--admin-status-preview);
+}
+
+/* Count reconciliation + small muted labels */
+.integrity-count-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+}
+
+.integrity-count-recon {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--otto-space-md);
+  margin-bottom: var(--otto-space-sm);
+  padding: var(--otto-space-sm);
+  background: var(--admin-surface);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+}
+
+.integrity-count-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--otto-space-xs);
+}
+
+.integrity-count-sep,
+.integrity-count-note {
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-text-muted);
+}
+
+/* Banners */
+.integrity-banner {
+  padding: var(--otto-space-md);
+  border: var(--admin-border);
+  border-left-width: 3px;
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+  font-size: var(--admin-font-size-base);
+}
+
+.integrity-banner-healthy {
+  border-left-color: var(--admin-status-healthy);
+}
+.integrity-banner-broken {
+  border-left-color: var(--admin-status-broken);
+}
+
+.integrity-banner-model {
+  color: var(--admin-text-muted);
+}
+
+/* Flow panels (dry-run / repairing / repaired / partial / connlost) */
+.integrity-panel {
+  border: var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+  overflow: hidden;
+}
+
+.integrity-panel-preview {
+  border-color: var(--admin-status-preview);
+}
+.integrity-panel-healthy {
+  border-color: var(--admin-status-healthy);
+}
+.integrity-panel-broken {
+  border-color: var(--admin-status-broken);
+}
+.integrity-panel-caution {
+  border-color: var(--admin-status-caution);
+}
+
+.integrity-panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-sm);
+  padding: var(--otto-space-sm) var(--otto-space-md);
+  border-bottom: var(--admin-border);
+}
+
+.integrity-panel-title {
+  font-size: var(--admin-font-size-base);
+  font-weight: 600;
+}
+
+.integrity-panel-body {
+  padding: var(--otto-space-md);
+  display: grid;
+  gap: var(--otto-space-md);
+}
+
+.integrity-panel-note {
+  margin: 0;
+  max-width: 70ch;
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-text-muted);
+}
+
+.integrity-panel-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-sm);
+  padding: var(--otto-space-sm) var(--otto-space-md);
+  border-top: var(--admin-border);
+}
+
+.integrity-panel-foot-actions {
+  margin-left: auto;
+  display: flex;
+  gap: var(--otto-space-sm);
+}
+
+.integrity-panel-writes {
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-text-muted);
+}
+
+/* Badges */
+.integrity-badge {
+  padding: 1px var(--otto-space-xs);
+  border-radius: var(--otto-radius-sm);
+  font-family: var(--admin-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid currentColor;
+}
+
+.integrity-badge-healthy {
+  color: var(--admin-status-healthy);
+}
+.integrity-badge-caution {
+  color: var(--admin-status-caution);
+}
+.integrity-badge-broken {
+  color: var(--admin-status-broken);
+}
+.integrity-badge-preview {
+  color: var(--admin-status-preview);
+}
+
+/* Live phase progress */
+.integrity-phase-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--otto-space-sm);
+}
+
+.integrity-phase {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-sm);
+  font-size: var(--admin-font-size-sm);
+}
+
+.integrity-phase-label {
+  font-weight: 600;
+  min-width: 120px;
+}
+
+.integrity-phase-target {
+  color: var(--admin-text-muted);
+}
+
+.integrity-phase-progress {
+  font-family: var(--admin-mono);
+  color: var(--admin-text-muted);
+}
+
+.integrity-bar {
+  flex: 1;
+  min-width: 80px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--admin-border-color);
+  overflow: hidden;
+}
+
+.integrity-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--admin-status-preview);
+  transition: width 120ms ease;
+}
+
+/* Repaired summary grid */
+.integrity-repaired-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1px;
+  background: var(--admin-border-color);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  overflow: hidden;
+}
+
+.integrity-repaired-cell {
+  background: var(--admin-bg);
+  padding: var(--otto-space-sm) var(--otto-space-md);
+  display: grid;
+  gap: var(--otto-space-xs);
+}
+
+.integrity-repaired-head {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-xs);
+}
+
+.integrity-repaired-value {
+  font-family: var(--admin-mono);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.integrity-repaired-label {
+  font-size: 11px;
+  color: var(--admin-text-muted);
+}
+
+/* Summary strip */
+.integrity-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+  margin-bottom: var(--otto-space-sm);
+}
+
+.integrity-summary-cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--otto-space-sm);
+}
+
+.integrity-summary-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--otto-space-sm);
+  padding: var(--otto-space-xs) var(--otto-space-sm);
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border-color);
+  border-left-width: 3px;
+  border-radius: var(--otto-radius-sm);
+}
+
+.integrity-summary-cell[data-zero='true'] {
+  opacity: 0.5;
+  border-left-color: var(--admin-border-color);
+}
+
+.integrity-summary-cell-healthy {
+  border-left-color: var(--admin-status-healthy);
+}
+.integrity-summary-cell-caution {
+  border-left-color: var(--admin-status-caution);
+}
+.integrity-summary-cell-broken {
+  border-left-color: var(--admin-status-broken);
+}
+.integrity-summary-cell-preview {
+  border-left-color: var(--admin-status-preview);
+}
+.integrity-summary-cell-neutral {
+  border-left-color: var(--admin-border-color);
+}
+
+.integrity-summary-value {
+  font-family: var(--admin-mono);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  min-width: 12px;
+}
+
+.integrity-summary-label {
+  font-family: var(--admin-mono);
+  font-size: 11px;
+  color: var(--admin-text-muted);
+}
+
+/* Sections */
+.integrity-sections {
+  display: grid;
+  gap: var(--otto-space-sm);
+}
+
+.integrity-section {
+  border: var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+  overflow: hidden;
+}
+
+.integrity-section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-sm);
+  width: 100%;
+  height: 40px;
+  padding: 0 var(--otto-space-md);
+  border: none;
+  background: transparent;
+  color: var(--admin-text);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: var(--admin-font-size-base);
+}
+
+.integrity-section-chevron {
+  color: var(--admin-text-muted);
+  width: 12px;
+  flex: none;
+}
+
+.integrity-section-title {
+  font-weight: 600;
+}
+
+.integrity-section-subtitle {
+  color: var(--admin-text-muted);
+}
+
+.integrity-section-status {
+  margin-left: auto;
+}
+
+.integrity-section-body {
+  padding: var(--otto-space-md);
+  border-top: var(--admin-border);
+}
+
+.integrity-clean-note {
+  margin: 0;
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-text-muted);
+}
+
+.integrity-body {
+  display: grid;
+  gap: var(--otto-space-md);
+}
+
+.integrity-subhead {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+  margin-bottom: var(--otto-space-xs);
+}
+
+.integrity-table code {
+  font-family: var(--admin-mono);
+  font-size: var(--admin-font-size-sm);
+}
+
+/* Cross-reference wrong-target rows */
+.integrity-wrong-list {
+  display: grid;
+  gap: var(--otto-space-sm);
+}
+
+.integrity-wrong-row {
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  background: var(--admin-bg);
+  padding: var(--otto-space-sm) var(--otto-space-md);
+  display: grid;
+  gap: var(--otto-space-sm);
+}
+
+.integrity-wrong-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--otto-space-xs);
+}
+
+.integrity-wrong-pointers {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--otto-space-sm);
+}
+
+.integrity-pointer {
+  padding: var(--otto-space-xs) var(--otto-space-sm);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  display: grid;
+  gap: var(--otto-space-xs);
+}
+
+.integrity-pointer-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.integrity-pointer-broken .integrity-pointer-label {
+  color: var(--admin-status-broken);
+}
+.integrity-pointer-healthy .integrity-pointer-label {
+  color: var(--admin-status-healthy);
+}
+
+.integrity-pointer-struck {
+  text-decoration: line-through;
+  text-decoration-color: var(--admin-status-broken);
+  opacity: 0.8;
+}
+
+.integrity-pointer-arrow {
+  color: var(--admin-text-muted);
+}
+
+.integrity-noperm-note {
+  margin: 0;
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-status-caution);
+}

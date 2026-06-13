@@ -46,9 +46,10 @@ contract a human uses.
 
 ### docs/
 
-Design docs (kept alongside the repo): `docs/familia-admin-ui-design.md` (the full
-study and datasheets), `docs/familia-admin-ui-ux-brief.md`, `docs/familia-admin-integrity-console-spec.md`,
-and `docs/familia-admin-claude-design-handoff.md`.
+Design docs and decision records: `docs/early-designs/` (the full UI design study
+and datasheets, the UX brief, and the production-hardening plan/ticket template),
+`docs/features/` (the integrity console spec, the auth-UI spec, and feature
+issues), and `docs/adr/` (architecture decision records).
 
 ### resources/00-assets/
 
@@ -58,13 +59,16 @@ and `docs/familia-admin-claude-design-handoff.md`.
 | `routes.txt` | Otto route file: the full endpoint map (HTTP + MCP) |
 | `lib/familia/admin/descriptor.rb` | reflects models into the `/_meta` descriptor (DB-free) |
 | `lib/familia/admin/api.rb` | the controller wiring routes to Familia |
-| `fixtures/` | worked models, sample payloads, and the contract shapes |
-| `prototype/backend-simulator.md` | the single stateful backend the Claude Design prototype runs on |
+| `fixtures/` | worked models, sample payloads, and the contract shapes (the shared truth both ends honor; back the contract tests) |
+| `prototype/backend-simulator.md` | historical: the system prompt that drove the archived prototype's simulator backend |
 
-## resources/01-designs/
+### resources/archive/
 
-From Claude Design, based on the ui design doc and the integrity console spec. The full study and
-datasheets are in `docs/` as `docs/familia-admin-ui-design.md`.
+`resources/archive/01-designs/` is the original Claude Design prototype (per-screen
+JSX, HTML shells, the simulator transport, and the extracted design system),
+retired and kept only as historical design reference — the SPA under `src/`
+replaced it (#23 / T7). See `resources/archive/01-designs/ARCHIVE.md`. The full UI
+design study and datasheets are in `docs/early-designs/familia-admin-ui-design.md`.
 
 ## Running locally
 
@@ -259,19 +263,23 @@ never in the unit file.
 
 ## Status
 
-The design study is complete and a high-fidelity, interactive prototype is built
-in Claude Design across the core screens (Integrity Console, Records, Models, with
-Migrations and Explorer following), all running on one shared simulator backend
-that keeps a single mutable state object, so a repair in one screen reflects in
-the counts of another. The Ruby scaffolding implements the read, integrity, and
-migration actions against the verified Familia 2.10.1 API; create/update,
-collection mutation, the raw explorer, and the streaming endpoints are marked
-TODO with correct skeletons.
+The Vite + React + TypeScript SPA under `src/` is the entire frontend, and all
+five screens are live: Records, Models, the Integrity console, Migrations, and
+the raw Explorer. Each builds itself from the backend contract — the `/_meta`
+descriptor and the integrity/migration/raw endpoints — and renders explicit error
+and honest "unavailable" states on failure, never seed data. The Ruby backend
+(`lib/familia/admin/api.rb`) implements the full surface against the verified
+Familia 2.10.1 API: record CRUD, audited single-field reveal, collection
+mutation, indexed query, integrity health-check and repair (with live repair
+progress streamed over server-sent events), migration status/drift/run/rollback,
+the raw explorer (SCAN paging, typed value inspect, server info, and an
+allowlisted read-only command console), and the operator audit trail.
 
-## The seam (prototype to production)
+## The seam is closed
 
-The prototype's simulator and the real `api.rb` speak the same request envelope
-and response shapes (see `resources/00-assets/fixtures/`). Going live is one transport swap: replace
-the in-browser `window.familiaBackend` simulator with `fetch()` calls to the Otto
-`/admin/api/*` endpoints. The fixtures become contract tests so the two ends
-never diverge.
+The SPA speaks REST directly to the Otto `/admin/api/*` endpoints — same-origin,
+with the HttpOnly session cookie riding along — so there is no in-browser
+simulator and no transport shim. The contract fixtures under
+`resources/00-assets/fixtures/` are the shared shapes both ends honor and back the
+contract tests. The original Claude Design prototype that once stood in for the
+backend is archived under `resources/archive/01-designs/` as historical reference.

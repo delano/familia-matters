@@ -1,61 +1,109 @@
 # AGENTS.md
 
-_Updated: 2026-06-12_
+_Updated: 2026-06-13_
 
 ## Discovery: Familia Admin
 
-A design-study + interactive-prototype + Ruby-scaffolding repo for a model-aware Redis/Valkey admin. No build system, no running server — three layers that share one contract. 100 tracked files.
+A model-aware Redis/Valkey admin: a Vite + React + TypeScript SPA frontend over a
+runnable Otto (Rack 3) Ruby backend, both driven by one introspection contract.
+The frontend builds itself from the backend's `/_meta` descriptor — no per-model
+scaffolding, no generated code. Dense, keyboard-first, dark-first operator tool.
 
-### Key Files
+### Layout
 
-**Contract layer (`resources/00-assets/`)** — the source of truth both ends honor:
-- `routes.txt`: Otto route map. 29 HTTP endpoints, grouped Auth/Discovery/Records/Collections/Query/Integrity/Migrations/Audit/Raw/Streams. Encodes auth tiers (`role:admin` vs `permission:{reveal_secrets,repair,run_migrations,raw_command}`) and `csrf=exempt` on mutations. (The agent-protocol route stubs were removed in T5 — `docs/0612-familia-admin-production-hardening-plan.md` §9 records re-adding that surface when it is actually built. T6 added `GET /admin/api/audit`, the operator-facing audit-trail view, plus the ReadOnlyGuard middleware: production defaults to read-only, refusing mutating methods 403 unless `FAMILIA_ADMIN_READ_ONLY=off`.)
-- `lib/familia/admin/descriptor.rb`: `Familia::Admin::Descriptor` — pure-metadata reflection of `Familia.members` into the UI contract. **Zero DB reads** (so `/_meta` is cacheable); every reflection call wrapped in `safe{}`. Verified vs Familia 2.10.1.
-- `lib/familia/admin/api.rb`: `Admin::API` — thin Otto controller. Read/integrity/migration actions implemented; create/update, `mutate_collection`, raw explorer, and SSE streams are `not_implemented` skeletons with correct hints.
-- `fixtures/models.rb`: three worked models (`Customer` rich/encrypted/indexed, `Session` on `logical_database 1`, `ApiKey` participation) the rest derives from.
-- `fixtures/*.sample.json` + `stream_repair.sample.jsonl`: contract-shaped payloads (descriptor, records, health_check, migrations, repair stream). `fixtures/README.md` documents two contract subtleties (index-backing structures leak into reflection; sorted-set score representation).
-- `prototype/backend-simulator.md`: the LLM system prompt that **is** the prototype backend — one StateModel, seeded from fixtures, mutated by actions.
-- `design-tokens.css`, `design-system-notes.md`: Otto-derived tokens at operator density, dark-first.
+- **`src/`** — the SPA, the *entire* frontend. React 19 + TypeScript, built by Vite
+  (`pnpm build` → `dist/`, which the backend serves at `/login` and the
+  cookie-gated web root; `pnpm dev` runs it on Vite's port and proxies `/admin/api`
+  to the Ruby backend). It has the auth gate (`App.tsx`), a dependency-free hash
+  router, a `useResource`/`useMutation` data layer over a typed REST client
+  (`src/api/client.ts`), an EventSource helper for the repair stream
+  (`src/api/sse.ts`), the shared `ErrorState`, the `/_meta` descriptor types
+  (`src/data/descriptor.ts`), and five screens under
+  `src/screens/{records,models,integrity,migrations,explorer}/`. Each screen owns
+  its own subtree; the route table is `src/screens/index.tsx`.
+- **`lib/familia/admin/`** — the runnable backend. `api.rb` (the Otto controller),
+  `descriptor.rb` (DB-free reflection → `/_meta`), `rack_app.rb` (the HTTP stack:
+  OriginGuard → ReadOnlyGuard → Otto + static SPA), plus `auth.rb`, `sessions.rb`,
+  `passphrase.rb`, `rate_limit.rb`, `read_only_guard.rb`, `origin_guard.rb`,
+  `audit_log.rb`, `boot.rb`. `config.ru` + `config/puma.rb` boot it.
+- **`resources/00-assets/`** — the contract layer (below).
+- **`resources/archive/01-designs/`** — the retired Claude Design prototype, kept
+  as historical design reference only (see its `ARCHIVE.md`). Not built, not
+  served — the SPA replaced it (#23 / T7).
 
-**Prototype layer (`resources/01-designs/`)** — React-via-CDN (no bundler):
-- `Familia Admin.html`: shell. Hosts the *single* backend instance and swaps screen iframes; bridges `familia-backend-{ping,req,res}` and `familia-nav` over `postMessage`.
-- `prototype/backend.js`: `createFamiliaBackend()` — drives `window.claude.complete`, keeps state implicitly in the chat transcript.
-- `prototype/backend-client.js`: `window.familiaBackend` — bridges to parent shell when embedded, falls back to a local instance standalone.
-- `prototype/seed.js`: fixtures inlined as the system prompt + SEED.
-- Per-screen dirs (`integrity-console/`, `records/`, `models/`, `migrations/`, `explorer/`): each has `App.jsx` (shell wrapper), a main component, `store.jsx`/`data.js`, `icons.jsx`. `records/store.jsx` shows the pattern: every op → `familiaBackend.request(envelope)`, with a local mirror for graceful offline degradation.
-- `_ds/`: two extracted Claude-Design systems (`familia-admin-…`, `onetime-secret-…`) — `_ds_bundle.js` exposes `window.FamiliaAdminDesignSystem_a9098d` (Sidebar/Topbar/Badge/…), tokens, fonts.
-- `screenshots/`: 4 PNGs.
+### Contract layer (`resources/00-assets/`) — the source of truth both ends honor
 
-**Docs (`docs/`)**: `ui-design.md` (717 lines, the full study/datasheets), `ui-ux-brief.md` (321), `integrity-console-spec.md` (198, the hero screen), `claude-design-prototype-handoff.md` (210).
+- `routes.txt`: the Otto route map (HTTP + MCP), grouped
+  Auth/Discovery/Records/Collections/Query/Integrity/Migrations/Audit/Raw/Streams.
+  Encodes auth tiers (`role:admin` vs `permission:{reveal_secrets,repair,run_migrations,raw_command}`)
+  and `csrf=exempt` on mutations. T6 added `GET /admin/api/audit` (the
+  operator-facing audit-trail view) and the ReadOnlyGuard: production defaults to
+  read-only, refusing mutating methods `403 read_only` unless
+  `FAMILIA_ADMIN_READ_ONLY=off`.
+- `lib/familia/admin/{descriptor,api}.rb`: reference copies of the backend's
+  descriptor + controller. The *runnable* ones live under the top-level `lib/`;
+  treat top-level `lib/` as authoritative when they diverge.
+- `fixtures/models.rb`: three worked models (`Customer` rich/encrypted/indexed,
+  `Session` on `logical_database 1`, `ApiKey` participation) the rest derives from.
+- `fixtures/*.sample.json` + `stream_repair.sample.jsonl`: contract-shaped payloads
+  (descriptor, records, health_check, migrations, repair stream). `fixtures/README.md`
+  documents two subtleties (index-backing structures leak into reflection;
+  sorted-set score representation).
+- `design-tokens.css`, `design-system-notes.md`: Otto-derived tokens at operator
+  density, dark-first. The SPA copies the tokens it needs into `src/styles.css`
+  (it does not load `resources/` CSS at runtime).
 
 ### Architecture
 
-Three layers, one envelope. The request shape `{action, model, params, tier}` and the JSON response shapes are identical across the prototype simulator and the Ruby `api.rb` — that's "the seam."
+One contract, REST transport. `Descriptor.app` emits `/_meta`; the SPA reflects it
+at runtime and builds every screen from it (the model list, identifiers, fields,
+indexes, collections, index queries) — nothing is generated or hand-synced. Reads
+and writes go over same-origin `fetch` to Otto `/admin/api/*` with the HttpOnly
+session cookie riding along; the integrity console consumes a server-sent-events
+stream for live repair progress.
 
 ```
-Descriptor.app ──emits──▶ /_meta (descriptor) ──▶ UI builds itself from it (no generated frontend)
-                                  │
-Browser shell (Familia Admin.html)
-  hosts 1 backend ◀─postMessage─ screen iframes ◀── store.jsx ◀── components
-        │                                                  ▲
-   backend.js → window.claude.complete (LLM = StateModel)  │ same envelope
-                                                           ▼
-  PRODUCTION SWAP: replace window.familiaBackend with fetch() → Otto /admin/api/* → Admin::API → Familia
+Descriptor.app ──emits──▶ /_meta ──▶ SPA (src/) builds itself (no generated frontend)
+SPA ──fetch /admin/api/* (cookie, same-origin)──▶ Otto ──▶ Admin::API ──▶ Familia (Redis/Valkey)
+                       └── GET /admin/api/stream/repair/:model ──▶ SSE repair progress
 ```
 
-Data flow (records.list example): component → `store.jsx` builds envelope → `familiaBackend.request` → (embedded) parent shell → `backend.js` → LLM computes from StateModel → response normalized back. Cross-screen guarantee: `records.create` bumps `timeline.count_fast`, so the Integrity console's next `integrity.check` reflects it — one mutable state object, not per-screen fixtures.
-
-Auth model: Otto enforces tier from `routes.txt` *before* the controller runs; `Admin::API` reads the authenticated actor from `env['otto.strategy_result']` and assumes the gate passed. Elevated actions (`reveal`, `repair`, migrations, `raw.command`) are audited via `audit!`.
+Auth model: Otto enforces the tier from `routes.txt` *before* the controller runs;
+`Admin::API` reads the authenticated actor from `env['otto.strategy_result']` and
+assumes the gate passed. Elevated actions (`reveal`, `repair`, migrations,
+`raw.command`) are audited via `audit!`. The 401/403 split is load-bearing in the
+SPA: 401 mid-session opens the reauth overlay (the app stays mounted, location
+preserved); 403 is reported without logging out.
 
 ### Dependencies
 
-- **Internal**: `api.rb` → `descriptor.rb`. Both depend on the live Familia runtime (`Familia.members`, `index_descriptors`, `health_check`, `repair_all!`, `Migration::Runner/Registry`). Prototype screens → `_ds` bundle + shared `familiaBackend` + `window.REC`/seed data.
-- **External**: Familia 2.10.1 (Redis/Valkey object layer); Otto (Rack 3 routing, auth, CSRF); React + ReactDOM via CDN; `window.claude.complete` (Claude Design runtime); `JSON` stdlib. Familia and Otto source repos live as siblings at `../`.
+- **Frontend**: React 19 + ReactDOM, Vite 8, Vitest, all via pnpm — no CDN, no
+  in-browser Babel. The client reads/writes no token or cookie (no localStorage,
+  no `document.cookie`); the session is an HttpOnly cookie carried automatically by
+  same-origin requests.
+- **Backend**: Familia 2.10.1 (the Redis/Valkey object layer), Otto (Rack 3
+  routing/auth/CSRF). Needs Valkey/Redis on `127.0.0.1:6379`. Familia and Otto
+  source repos live as siblings at `../`.
 
 ### Observations
 
-- **The descriptor is the architecture.** Frontend isn't generated or hand-synced — it reflects `/_meta` at runtime, so new models need zero scaffolding.
-- **The backend is an LLM.** The prototype has no JS state machine; `backend-simulator.md` is a system prompt and state lives in the conversation transcript. Going live is described as a one-transport swap, with fixtures becoming contract tests.
-- **Honesty markers in the contract**: `count_fast` is flagged O(1)-but-phantom-prone; encrypted → `[CONCEALED]`, transient omitted, plaintext only via audited single-field reveal; cross-`logical_database` repairs return `CrossDatabaseError` (drives the "Refused" UI state).
-- **Status**: read/integrity/migration paths real; mutations/raw/streams are skeletons. The 8-state preview switcher in `integrity-console/App.jsx` (issues→healthy→dryrun→repairing→repaired→partial→refused→noperm) maps the full dangerous-action lifecycle the design mandates (dry-run → confirm-with-impact → apply).
-- `.DS_Store` files are tracked (4 of them) — likely unintended.
+- **The descriptor is the architecture.** The frontend reflects `/_meta` at
+  runtime, so new models need zero scaffolding.
+- **Honesty over fabrication.** There are no offline mirrors and no seed data
+  anywhere in the SPA — a failed, empty, or refused response renders an explicit
+  `ErrorState` or honest "unavailable" state, never anything an operator could
+  mistake for live data. `count_fast` is flagged O(1)-but-phantom-prone (the
+  integrity screen reconciles it against a SCAN count); encrypted → `[CONCEALED]`,
+  transient omitted, plaintext only via audited single-field reveal; migrations
+  with no runner render an explicit "no runner" state; the raw command console is a
+  read-only allowlist with **no** escalation/force.
+- **The repair stream never reconnects.** `src/api/sse.ts` closes the EventSource
+  on every terminal condition (done / named error / connection error /
+  unparseable), because each reconnect would re-audit and re-run the repair
+  server-side.
+
+### Validate
+
+- Frontend: `pnpm install --frozen-lockfile` then `pnpm typecheck && pnpm test && pnpm build`.
+- Backend: `bundle exec try --agent try/` (the contract, security, and login-gate
+  suites). CI runs both, across Node 22/24 and Ruby 3.3/3.4/4.0.

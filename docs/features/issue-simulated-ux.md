@@ -1,3 +1,12 @@
+> **Status: superseded (closed) — #23 / T7.** This issue targeted the prototype's
+> "simulated vs live" chip, which derived from the in-browser simulator's
+> offline/seed fallback. T7 retired that prototype and rebuilt the frontend as the
+> Vite SPA, which has **no simulator and no offline fallback at all**: every
+> failed or refused response renders an explicit `ErrorState`
+> (`src/components/ErrorState.tsx`), so there is no "simulated" state left to mark.
+> The prototype enumerated below is archived under `resources/archive/01-designs/`.
+> No action remains; kept as a record.
+
 ## Problem Statement
 
 The admin UI signals "simulated" state with a small, low-contrast uppercase label tucked into a panel header or command row. It marks results that came from the offline seed or a guardrail refusal rather than a live Redis/Valkey read. The cue is easy to miss, so an operator can mistake fabricated seed data for real keyspace state. We want a clearer, harder-to-miss indication of simulated vs live — and a defined answer for whether/how the mode can be toggled.

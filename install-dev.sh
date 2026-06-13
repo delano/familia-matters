@@ -16,8 +16,9 @@
 # work, `pnpm dev` runs the SPA on Vite's own port (:5173) and proxies
 # /admin/api to the Ruby backend on :9292; that path does not need dist/.
 #
-# (The old Claude Design prototype under resources/01-designs/ is no longer
-# served — the SPA replaced it, #23 / T7 — so this script no longer builds it.)
+# (The old Claude Design prototype is archived under resources/archive/01-designs/
+# and is no longer served — the SPA replaced it, #23 / T7 — so this script no
+# longer builds it.)
 #
 # Idempotent: safe to re-run at any time. Never overwrites an existing
 # .env, Procfile, or Procfile.dev.

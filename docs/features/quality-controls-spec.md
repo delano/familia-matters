@@ -20,8 +20,10 @@ keep the codebase healthy as it grows. Sequenced as reviewable increments
 | Dependency audit | Nothing configured |
 | Pre-commit hooks | None |
 
-Surface area: ~1630 LOC Ruby (`lib/`), ~5620 LOC JSX prototypes
-(`resources/01-designs/`), stub TSX app (`src/`, 5 lines).
+Surface area: ~1630 LOC Ruby (`lib/`) plus the Vite + React + TypeScript SPA
+under `src/` — the entire frontend, strict-typed and unit-tested (`pnpm test`).
+The original Claude Design JSX prototype is archived under
+`resources/archive/01-designs/`: not built, linted, or type-checked.
 
 ## Prerequisite: switch otto to the published gem
 
@@ -72,9 +74,9 @@ test job must declare a `valkey` (or `redis`) service container and set
 **Files:**
 - `package.json`: add `"typecheck": "tsc --noEmit"` to scripts
 
-Covers `src/` (the TSX app). The JSX prototypes under `resources/01-designs/`
-use plain JSX with esbuild transform (no TS), so they are outside this
-gate. If/when prototypes migrate to TSX, extend `tsconfig.json` includes.
+Covers `src/`, the production SPA (already wired as the `pnpm typecheck`
+script). The archived prototype under `resources/archive/01-designs/` is plain
+JSX and is deliberately outside every gate (not built or type-checked).
 
 **Validation:** `pnpm typecheck` exits 0.
 
@@ -151,5 +153,6 @@ once the workflow lands.
 - CODEOWNERS
 - Changelog enforcement
 - Release automation
-- eslint/biome for JSX prototypes (plain JSX, esbuild-only; revisit when
-  prototypes migrate to production TSX)
+- eslint/biome for the SPA (`src/`) — not configured yet; a reasonable
+  fast-follow, but out of scope for this pass. (The archived prototype under
+  `resources/archive/01-designs/` is out of scope entirely.)
