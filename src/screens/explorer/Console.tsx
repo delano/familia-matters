@@ -37,6 +37,13 @@ function parseLine(line: string): { cmd: string; args: string[] } {
 export function Console(): React.JSX.Element {
   const [input, setInput] = useState('')
   const [history, setHistory] = useState<HistoryEntry[]>([])
+  // Submitted command lines (oldest -> newest) for ↑/↓ recall, and the cursor
+  // into them: null == "editing a fresh line at the bottom", a number == the
+  // recalled index. Kept separate from `history` (settled-run display). The
+  // in-progress draft is stashed on the first ↑ so coming back down restores it.
+  const [commands, setCommands] = useState<string[]>([])
+  const [cursor, setCursor] = useState<number | null>(null)
+  const draftRef = useRef('')
   // Monotonic id per run, so history keys are stable and never reuse an index.
   const nextId = useRef(0)
   const mutation = useMutation()
@@ -48,6 +55,11 @@ export function Console(): React.JSX.Element {
     if (cmd === '') return
 
     setInput('')
+    // Append to the ↑/↓ recall history (a command that will fail still recalls,
+    // like a shell) and drop back to the fresh line.
+    setCommands((prev) => [...prev, line])
+    setCursor(null)
+    draftRef.current = ''
     mutation.reset()
 
     // Tap the outcome as it passes through the mutation: useMutation.run returns
@@ -77,6 +89,33 @@ export function Console(): React.JSX.Element {
     })
   }
 
+  // ↑/↓ walk the submitted-command history into the input, readline-style: ↑
+  // from the fresh line jumps to the newest command and then older (clamped at
+  // the oldest); ↓ moves newer and past the newest restores the saved draft.
+  // This only repopulates the input — no escalation; the server still governs
+  // execution. preventDefault stops the arrow from also jumping the caret.
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (e.key === 'ArrowUp') {
+      if (commands.length === 0) return
+      e.preventDefault()
+      if (cursor === null) draftRef.current = input
+      const idx = cursor === null ? commands.length - 1 : Math.max(0, cursor - 1)
+      setCursor(idx)
+      setInput(commands[idx])
+    } else if (e.key === 'ArrowDown') {
+      if (cursor === null) return
+      e.preventDefault()
+      const idx = cursor + 1
+      if (idx >= commands.length) {
+        setCursor(null)
+        setInput(draftRef.current)
+      } else {
+        setCursor(idx)
+        setInput(commands[idx])
+      }
+    }
+  }
+
   const pending = mutation.state.phase === 'pending'
 
   return (
@@ -84,7 +123,7 @@ export function Console(): React.JSX.Element {
       <div className="explorer-console-head">
         <span className="explorer-console-label">Command console</span>
         <span className="explorer-console-note">
-          read-only allowlist · destructive commands are blocked server-side
+          read-only allowlist · destructive commands are blocked server-side · ↑/↓ recalls history
         </span>
       </div>
 
@@ -114,6 +153,7 @@ export function Console(): React.JSX.Element {
           spellCheck={false}
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={onKeyDown}
           disabled={pending}
         />
         <button

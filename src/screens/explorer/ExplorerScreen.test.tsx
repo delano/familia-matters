@@ -317,6 +317,41 @@ describe('command console (no force, no escalation, no live feed)', () => {
     expect(fake.calls.every((c) => !(c.body ?? '').includes('force'))).toBe(true)
   })
 
+  it('recalls submitted commands with ArrowUp / ArrowDown and preserves the draft', async () => {
+    const user = userEvent.setup()
+    renderExplorer((path, init) => {
+      if (path === '/raw/command' && init?.method === 'POST') {
+        return { ok: true, data: { cmd: 'X', args: [], result: 'PONG', simulated: false, truncated: false } }
+      }
+      return undefined
+    })
+
+    const input = screen.getByTestId('explorer-command-input') as HTMLInputElement
+
+    // Run two commands so both enter the recall history (oldest -> newest).
+    await user.type(input, 'PING')
+    await user.click(screen.getByTestId('explorer-command-run'))
+    await waitFor(() => expect(input).toHaveValue(''))
+    await user.type(input, 'DBSIZE')
+    await user.click(screen.getByTestId('explorer-command-run'))
+    await waitFor(() => expect(input).toHaveValue(''))
+
+    // Start a fresh draft, then navigate: it must survive the round trip.
+    await user.type(input, 'INF')
+    input.focus()
+
+    await user.keyboard('{ArrowUp}') // newest
+    expect(input).toHaveValue('DBSIZE')
+    await user.keyboard('{ArrowUp}') // older
+    expect(input).toHaveValue('PING')
+    await user.keyboard('{ArrowUp}') // clamped at the oldest
+    expect(input).toHaveValue('PING')
+    await user.keyboard('{ArrowDown}') // newer again
+    expect(input).toHaveValue('DBSIZE')
+    await user.keyboard('{ArrowDown}') // past the newest -> the preserved draft
+    expect(input).toHaveValue('INF')
+  })
+
   it('flags a truncated result without claiming the whole value', async () => {
     const user = userEvent.setup()
     renderExplorer((path, init) => {
