@@ -9,9 +9,9 @@
 //
 // GATEWAY MODE: the server gate (rack_app.rb) sends unauthenticated browsers to
 // /login?return_to=<original path>. When that parameter is present, a freshly
-// authenticated session navigates straight back to it — the prototype UI at the
-// web root — instead of rendering the shell. The HttpOnly session cookie rides
-// along on the prototype's same-origin fetches, so no token ever changes hands.
+// authenticated session navigates straight back to it — the same SPA served at
+// the web root — instead of rendering the shell inline. The HttpOnly session
+// cookie rides along on same-origin fetches, so no token ever changes hands.
 //
 // The authenticated subtree is rendered IDENTICALLY whether or not the reauth
 // overlay is active: the overlay is only APPENDED on top. That keeps the app
@@ -39,7 +39,7 @@ interface AppProps {
 
 function defaultNavigate(url: string): void {
   // replace(), not assign(): the login page must not remain in history, or
-  // Back from the prototype would bounce through an already-satisfied login.
+  // Back from the app would bounce through an already-satisfied login.
   window.location.replace(url)
 }
 

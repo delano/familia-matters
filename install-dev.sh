@@ -7,22 +7,17 @@
 #   - Copies Procfile.example -> Procfile for overmind/hivemind
 #   - Installs Ruby gems (bundle install)
 #   - Installs Node packages (pnpm install)
-#   - Cleans the SPA build output (dist/) and builds the prototype design
-#     assets (resources/01-designs/dist/)
+#   - Builds the Vite SPA (dist/) — the whole frontend the Ruby backend serves
 #   - Warns when Valkey/Redis is not reachable on 127.0.0.1:6379
 #
-# Intentionally does NOT run `pnpm build` (the /login SPA). Its output in
-# dist/ causes confusion about which files are actually being served during
-# development; the Vite dev server (pnpm dev) serves the SPA directly and
-# proxies /admin/api to the Ruby backend on :9292. To exercise the SPA's
-# served flow through the Ruby gate alone, run `pnpm build` yourself and
-# open http://127.0.0.1:9292/.
+# The Vite SPA (src/ -> dist/) is the entire frontend: the Ruby backend serves
+# it at /login and, behind the session cookie, at the web root. So this builds
+# dist/ and you can open http://127.0.0.1:9292/ directly. For live frontend
+# work, `pnpm dev` runs the SPA on Vite's own port (:5173) and proxies
+# /admin/api to the Ruby backend on :9292; that path does not need dist/.
 #
-# It DOES run `pnpm build:prototypes`. The post-login design pages
-# (resources/01-designs/) are never served by Vite — the Ruby backend serves
-# them prebuilt at the web root, referencing /dist/*.js. Without this build
-# those pages 404 after login. There is no which-files-am-I-seeing confusion
-# here because Vite never serves them.
+# (The old Claude Design prototype under resources/01-designs/ is no longer
+# served — the SPA replaced it, #23 / T7 — so this script no longer builds it.)
 #
 # Idempotent: safe to re-run at any time. Never overwrites an existing
 # .env, Procfile, or Procfile.dev.
@@ -149,13 +144,8 @@ echo "Installing Node packages..."
 pnpm install
 
 echo "---"
-echo "Removing SPA build output (dist/) — the Vite dev server serves it directly..."
-rm -rf dist
-
-echo "---"
-echo "Building prototype design assets (resources/01-designs/dist/)..."
-echo "  These post-login pages are served prebuilt by the Ruby backend, not Vite."
-pnpm build:clean
+echo "Building the Vite SPA (dist/) — the Ruby backend serves it at /login and the web root..."
+pnpm build
 
 echo "---"
 if valkey_reachable; then
@@ -170,9 +160,9 @@ fi
 echo "---"
 echo "Setup complete."
 echo ""
-echo "  Note: pnpm build (the /login SPA) was NOT run (intentional) —"
-echo "  the Vite dev server serves it directly. The prototype design assets"
-echo "  (resources/01-designs/dist/) WERE built; the backend serves those."
+echo "  The Vite SPA (dist/) was built — the Ruby backend serves it at"
+echo "  http://127.0.0.1:9292/ (and /login). For live frontend work, pnpm dev"
+echo "  runs it on :5173 and proxies the API to :9292."
 echo ""
 if [[ "${has_process_manager}" = true ]]; then
     echo "To start (Valkey/Redis on 127.0.0.1:6379 required):"
@@ -183,8 +173,9 @@ else
     echo "  pnpm dev                                           # Vite on :5173"
 fi
 echo ""
-echo "Then open the Vite URL it prints (default http://localhost:5173/login/)"
-echo "and log in with the FAMILIA_ADMIN_PASSPHRASE from .env."
+echo "Then open http://127.0.0.1:9292/ (backend serves the built SPA), or the"
+echo "Vite dev URL it prints (default http://localhost:5173/login/) for live"
+echo "reload. Log in with the FAMILIA_ADMIN_PASSPHRASE from .env."
 echo ""
 echo "To test:"
 echo "  bundle exec try --agent try/    # Ruby contract suites (needs Valkey/Redis)"
