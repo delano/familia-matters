@@ -108,8 +108,9 @@ Assert-correct-behavior, then make-live-match. Tests in `try/` (do not weaken th
 6. **adapter stream auth-failure** (`backend-client.js`). Stream fetch uses `redirect:'manual'`; a 3xx /
    opaqueredirect / non-2xx / non-event-stream response resolves `{error:'forbidden',
    required_tier:'permission:repair'}`. 2xx SSE parsing intact.
-7. **boot fail-closed** (`boot.rb#guard_production_keys!`, first line of `setup!`). `env = RACK_ENV||APP_ENV||
-   'development'`; in non-dev, raise naming the offending dev-default PASETO/encryption key + the override vars.
+7. **boot fail-closed** (`boot.rb#guard_production_keys!`, first line of `setup!`). `env = RACK_ENV ||
+   'development'` (RACK_ENV is the sole environment signal for this Rack process); in non-dev, raise naming
+   the offending dev-default PASETO/encryption key + the override vars.
 
 ### Verification evidence (this session)
 - `bundle exec try --agent try/` → **89 pass / 0 fail** (10 files); re-run by hand on the working tree, green.
