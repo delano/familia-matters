@@ -95,6 +95,66 @@ in `Procfile.example` cover the gotchas — most importantly that an unset
 passphrase makes every login fail with a generic "Authentication failed" while
 the server otherwise boots and runs normally.
 
+## Admin your own application's models
+
+The admin is introspection-driven: every screen (and the SPA itself) builds from
+the models registered in `Familia.members` at runtime via `GET /admin/api/_meta`,
+so pointing it at your own application is the whole job — no per-model
+scaffolding, no frontend change. Out of the box the standalone server loads three
+demo fixtures (`Customer`/`Session`/`ApiKey`); two env vars replace them with your
+application's models. (Dev examples use `rackup`; production boots with `puma` —
+see "Deploying to production".)
+
+### The app owns its Familia config — `FAMILIA_ADMIN_APP` (recommended for a real app)
+
+A real application (e.g. OneTimeSecret) already configures Familia — the
+connection URI, the encryption keys, the key version — and registers its own
+`Familia::Horreum` models when its code loads. Point `FAMILIA_ADMIN_APP` at the
+require target(s) that do that:
+
+```bash
+FAMILIA_ADMIN_APP=/path/to/onetimesecret/lib/onetime \
+FAMILIA_ADMIN_PASSPHRASE='your shared admin passphrase' \
+  bundle exec rackup
+```
+
+`config.ru` requires those targets, then runs the **embedded** boot path: the
+admin *asserts* the app's Familia configuration and never overwrites it, so the
+app's own keys decrypt its real encrypted fields and no admin mistake can clobber
+live key material. The demo fixtures are never loaded.
+
+**Run it under the host app's bundle.** The admin requires your application's
+code, so Familia/Otto and your app's other dependencies must resolve to *your*
+versions, not the admin's — run the process with `BUNDLE_GEMFILE` pointed at the
+host app's `Gemfile` (with the admin available as a dependency or on the load
+path). A separate-process deployment that loads the host's classes this way is
+exactly what the embedded path (`setup_embedded!`) is built for. A worked example
+is in [`examples/onetimesecret-config.ru`](examples/onetimesecret-config.ru).
+
+### You have model files, the admin owns the config — `FAMILIA_ADMIN_MODELS`
+
+When you have model definitions but no app boot that configures Familia, load the
+files directly and let the admin own the connection + encryption:
+
+```bash
+FAMILIA_URI=redis://127.0.0.1:6379 \
+FAMILIA_ADMIN_ENCRYPTION_KEY=<your app's base64 32-byte key> \
+FAMILIA_ADMIN_MODELS='/path/to/app/models/*.rb' \
+FAMILIA_ADMIN_PASSPHRASE='your shared admin passphrase' \
+  bundle exec rackup
+```
+
+Each entry is a file, a directory (every `*.rb` under it, sorted), a glob, or a
+`$LOAD_PATH`/gem name; separate multiple entries with commas. To reveal real
+encrypted fields you must supply the *same* `FAMILIA_ADMIN_ENCRYPTION_KEY` the app
+wrote them with — otherwise reveal returns garbage.
+
+### Either way
+
+The admin's authentication (the shared passphrase + PASETO session) is its own,
+independent of the application being administered, and the raw Explorer console
+stays a read-only allowlist regardless of which models are loaded.
+
 ## Deploying to production
 
 Familia Admin runs as a **separate process** on the production host. It must
@@ -246,6 +306,8 @@ never in the unit file.
 
 | Variable | Default | Effect |
 |---|---|---|
+| `FAMILIA_ADMIN_APP` | unset | Comma-separated require targets (file/dir/glob/`$LOAD_PATH` name) for the application whose models the admin manages. Requiring them must configure Familia (connection + encryption) and register the app's `Horreum` models; the admin then runs the embedded path — it *asserts* that config and never overwrites it. Unset ⇒ the bundled demo fixtures. Mutually exclusive with `FAMILIA_ADMIN_MODELS`. See "Admin your own application's models". |
+| `FAMILIA_ADMIN_MODELS` | unset | Comma-separated model sources (file/dir/glob) loaded under the **admin-owned** standalone config (the admin supplies the connection via `FAMILIA_URI` and encryption via `FAMILIA_ADMIN_ENCRYPTION_KEY`). For model-only sources that do not configure Familia themselves. |
 | `FAMILIA_ADMIN_PASSPHRASE` | unset | The shared login passphrase (min 16 chars). Unset ⇒ every login fails with a generic error while the server otherwise runs. |
 | `FAMILIA_ADMIN_PASETO_KEY` | dev key | base64url 32-byte symmetric key for session tokens (PASETO v2.local). The boot guard refuses to start in non-dev with the dev default. |
 | `FAMILIA_ADMIN_ENCRYPTION_KEY` | dev key | Familia field-encryption key — standalone boots only (embedded boots defer to the host app's keys). Same non-dev boot guard. |

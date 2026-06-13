@@ -34,6 +34,28 @@ module Familia
       # FAMILIA_ADMIN_ENCRYPTION_KEY. SEPARATE from the PASETO token key.
       ENCRYPTION_DEV_KEY = 'ZmFtaWxpYS1hZG1pbi1kZXYtZW5jcnlwdGlvbi1rZXk='
 
+      # Point the standalone server at YOUR application's models instead of the
+      # bundled demo fixtures. Two explicit, mutually-exclusive choices (config.ru
+      # selects the entry point; see "Admin your own application" in the README):
+      #
+      #   FAMILIA_ADMIN_APP    — your app OWNS the Familia config (connection URI +
+      #                          encryption keys) and registers its own Horreum
+      #                          models. setup_host_app! requires it, then runs the
+      #                          EMBEDDED path (asserts, never clobbers, your keys
+      #                          decrypt your real data). This is the right path for
+      #                          a real app like OneTimeSecret.
+      #   FAMILIA_ADMIN_MODELS — load these model FILES under the STANDALONE config
+      #                          (the admin supplies the connection + encryption from
+      #                          env). For model-only sources / apps that do not
+      #                          configure Familia themselves.
+      #
+      # Selecting WHICH models a standalone boot reflects is NOT the
+      # standalone-vs-embedded distinction (who owns Familia config — the
+      # data-corruption-critical choice made by explicit method name). It only
+      # swaps the model source, so it is allowed to read the environment here.
+      HOST_APP_ENV = 'FAMILIA_ADMIN_APP'
+      MODELS_ENV   = 'FAMILIA_ADMIN_MODELS'
+
       module_function
 
       # STANDALONE-DEV path: configure the Familia connection + encryption and
@@ -87,6 +109,24 @@ module Familia
         assert_host_encryption!
         load_admin!
         true
+      end
+
+      # HOST-APP standalone entry (config.ru when FAMILIA_ADMIN_APP is set).
+      #
+      # `require_targets` is a comma-separated list of files/directories/globs —
+      # your application's boot or model code. Requiring them must (a) configure
+      # Familia (Familia.uri + encryption_keys + current_key_version) and (b)
+      # register your Horreum models, exactly as your app's own boot does. The
+      # admin then runs the EMBEDDED path: it ASSERTS that configuration and never
+      # overwrites it, so your app's keys decrypt your real encrypted fields and a
+      # mistake here can never clobber live key material.
+      #
+      # This is the correct way to admin a real application's data (e.g.
+      # OneTimeSecret). Run the admin under the host app's bundle so Familia/Otto
+      # resolve to the host's versions — see the README integration recipe.
+      def setup_host_app!(require_targets)
+        require_sources!(require_targets, env_var: HOST_APP_ENV)
+        setup_embedded!
       end
 
       # The embedded path never reads FAMILIA_ADMIN_ENCRYPTION_KEY (key
@@ -247,11 +287,62 @@ module Familia
       end
 
       def load_models!(app_root)
+        spec = ENV[MODELS_ENV].to_s.strip
+        unless spec.empty?
+          # STANDALONE path with operator-supplied model files: reflect THESE
+          # instead of the demo fixtures. The connection + encryption were already
+          # configured from env above (admin owns them); these sources only need
+          # to declare Horreum models.
+          require_sources!(spec, env_var: MODELS_ENV)
+          return
+        end
+
         # Promoted copy at lib/models.rb (the resources/00-assets original is the
         # pristine contract snapshot). The copy adds `feature :transient_fields`
         # to Customer, which the original omits — without it the model raises
         # NoMethodError on `transient_field` under Familia 2.10.1.
         require File.join(app_root, 'lib', 'models')
+      end
+
+      # Require a comma-separated list of model/app sources. Each entry is a
+      # directory (every *.rb under it, sorted), a glob (every match, sorted), a
+      # single file, or a bare $LOAD_PATH/gem name. Relative entries resolve
+      # against the process working directory. Wraps a load failure with the
+      # offending env var so a wrong path is an obvious operator error, not an
+      # opaque LoadError from deep in require.
+      def require_sources!(spec, env_var:)
+        entries = spec.to_s.split(',').map(&:strip).reject(&:empty?)
+        targets = entries.flat_map { |e| expand_require_entry(e) }
+        if targets.empty?
+          raise "#{env_var}=#{spec.inspect} matched no Ruby files to load. Point it " \
+                'at a model file, a directory of models, a glob, or a require name.'
+        end
+
+        targets.each do |t|
+          require t
+        rescue ScriptError, StandardError => e
+          raise "#{env_var}: failed to load #{t.inspect} (#{e.class}: #{e.message})"
+        end
+        targets
+      end
+
+      # Expand one require entry to the concrete thing(s) to require: a directory
+      # to its sorted *.rb files, a glob to its sorted matches, an existing file
+      # to itself (with a .rb fallback), or — when nothing matches on disk — the
+      # entry verbatim so a $LOAD_PATH/gem name still resolves.
+      def expand_require_entry(entry)
+        path = File.expand_path(entry)
+        if File.directory?(path)
+          Dir.glob(File.join(path, '**', '*.rb')).sort
+        elsif entry.match?(/[*?\[{]/)
+          Dir.glob(path).sort
+        elsif File.file?(path)
+          [path]
+        elsif File.file?("#{path}.rb")
+          ["#{path}.rb"]
+        else
+          [entry]
+        end
       end
 
       def load_admin!
