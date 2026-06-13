@@ -1,0 +1,503 @@
+/*
+ * src/screens/migrations/migrations.css — co-located styles for the Migrations
+ * screen. Uses the shared design tokens (--admin-*, --otto-*) defined in
+ * src/styles.css; reuses the shared .data-table / .screen-loading / .spinner /
+ * .error-state / .screen-title classes for everything they already cover and
+ * only adds migration-specific layout here. Dark-first, dense operator tool.
+ */
+
+.migrations-screen code {
+  font-family: var(--admin-mono);
+  font-size: var(--admin-font-size-sm);
+}
+
+.migrations-console {
+  display: grid;
+  gap: var(--otto-space-lg);
+}
+
+/* The buttons match the records-screen affordance language. */
+.migrations-screen button:not(.error-state-retry) {
+  padding: var(--otto-space-xs) var(--otto-space-sm);
+  background: transparent;
+  color: var(--admin-text);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  font-size: var(--admin-font-size-sm);
+  cursor: pointer;
+  transition: var(--otto-transition-fast);
+}
+
+.migrations-screen button:hover:not(:disabled):not(.error-state-retry) {
+  border-color: var(--admin-text-muted);
+}
+
+.migrations-screen button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* The one sanctioned accent: the primary run action. */
+.migrations-screen .migrations-run-btn {
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.migrations-screen .migrations-run-btn:hover:not(:disabled) {
+  background: var(--admin-accent-hover);
+}
+
+.migrations-screen .migrations-destroy-btn {
+  color: var(--admin-status-broken);
+  border-color: var(--admin-status-broken);
+}
+
+/* ---- Summary bar ---- */
+.migrations-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--otto-space-md);
+}
+
+.migrations-counts {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--otto-space-lg);
+}
+
+.migrations-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--otto-space-xs);
+  white-space: nowrap;
+}
+
+.migrations-count-value {
+  font-family: var(--admin-mono);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.migrations-count-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+}
+
+.migrations-summary-actions {
+  display: inline-flex;
+  gap: var(--otto-space-sm);
+}
+
+.migrations-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  align-self: center;
+  flex: none;
+}
+
+.migrations-dot--healthy {
+  background: var(--admin-status-healthy);
+}
+.migrations-dot--caution {
+  background: var(--admin-status-caution);
+}
+.migrations-dot--broken {
+  background: var(--admin-status-broken);
+}
+.migrations-dot--neutral {
+  background: var(--admin-status-neutral);
+}
+
+/* ---- No migration runner / no-perm honest panels ---- */
+.migrations-norunner {
+  margin: var(--otto-space-md) 0;
+  padding: var(--otto-space-lg);
+  border: var(--admin-border);
+  border-left: 3px solid var(--admin-status-neutral);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+}
+
+.migrations-norunner h3 {
+  margin: 0 0 var(--otto-space-sm);
+  font-size: 15px;
+  color: var(--admin-text);
+}
+
+.migrations-norunner p {
+  margin: 0;
+  max-width: 64ch;
+  color: var(--admin-text-muted);
+}
+
+.migrations-noperm {
+  margin: 0;
+  padding: var(--otto-space-sm) var(--otto-space-md);
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-status-caution);
+  border-left: 2px solid var(--admin-status-caution);
+  background: rgba(217, 119, 6, 0.12);
+}
+
+.migrations-noperm code {
+  color: var(--admin-text);
+}
+
+/* ---- Flow panels (dry-run, done, partial, rollback confirm) ---- */
+.migrations-flow {
+  display: grid;
+  gap: var(--otto-space-md);
+  margin: var(--otto-space-md) 0;
+  padding: var(--otto-space-lg);
+  border: 1px solid var(--admin-border-color);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+}
+
+.migrations-flow--preview {
+  border-color: var(--admin-status-preview);
+}
+.migrations-flow--healthy {
+  border-color: var(--admin-status-healthy);
+}
+.migrations-flow--caution {
+  border-color: var(--admin-status-caution);
+}
+.migrations-flow--broken {
+  border-color: var(--admin-status-broken);
+}
+
+.migrations-flow-head {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-sm);
+}
+
+.migrations-flow-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.migrations-flow-actions {
+  display: flex;
+  gap: var(--otto-space-sm);
+  justify-content: flex-end;
+}
+
+.migrations-badge {
+  padding: 1px var(--otto-space-xs);
+  font-family: var(--admin-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: var(--otto-radius-sm);
+  border: 1px solid currentColor;
+}
+
+.migrations-badge--preview {
+  color: var(--admin-status-preview);
+}
+.migrations-badge--healthy {
+  color: var(--admin-status-healthy);
+}
+.migrations-badge--caution {
+  color: var(--admin-status-caution);
+}
+.migrations-badge--broken {
+  color: var(--admin-status-broken);
+}
+
+.migrations-note {
+  color: var(--admin-text-muted);
+  font-size: var(--admin-font-size-sm);
+}
+
+.migrations-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+}
+
+/* ---- Would-run + plan ---- */
+.migrations-wouldrun {
+  display: grid;
+  gap: var(--otto-space-xs);
+}
+
+.migrations-id-list {
+  margin: var(--otto-space-xs) 0 0;
+  padding-left: var(--otto-space-lg);
+}
+
+.migrations-plan {
+  display: grid;
+  gap: var(--otto-space-sm);
+}
+
+.migrations-plan-step {
+  border: var(--admin-border);
+  border-radius: var(--admin-radius);
+  padding: var(--otto-space-sm) var(--otto-space-md);
+  background: var(--admin-bg);
+}
+
+.migrations-plan-step-head {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-sm);
+  flex-wrap: wrap;
+  margin-bottom: var(--otto-space-xs);
+}
+
+.migrations-op {
+  font-family: var(--admin-mono);
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-text-muted);
+}
+
+.migrations-impact {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+}
+
+.migrations-impact-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--otto-space-md);
+}
+
+.migrations-impact-row dt {
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-text-muted);
+}
+
+.migrations-impact-row dd {
+  margin: 0;
+  font-family: var(--admin-mono);
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-text);
+}
+
+/* ---- Acknowledgement checkboxes (irreversible / rollback) ---- */
+.migrations-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--otto-space-sm);
+  padding: var(--otto-space-sm) var(--otto-space-md);
+  border: 1px solid var(--admin-status-broken);
+  border-radius: var(--otto-radius-sm);
+  background: rgba(220, 38, 38, 0.08);
+  font-size: var(--admin-font-size-sm);
+  cursor: pointer;
+}
+
+.migrations-flow--caution .migrations-ack {
+  border-color: var(--admin-status-caution);
+  background: rgba(217, 119, 6, 0.1);
+}
+
+.migrations-ack input {
+  margin-top: 2px;
+}
+
+/* ---- Sections ---- */
+.migrations-section {
+  display: grid;
+  gap: var(--otto-space-sm);
+}
+
+.migrations-section-title {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+}
+
+.migrations-cards {
+  display: grid;
+  gap: var(--otto-space-sm);
+}
+
+.migrations-card {
+  border: var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+  padding: var(--otto-space-sm) var(--otto-space-md);
+  display: grid;
+  gap: var(--otto-space-sm);
+}
+
+.migrations-card--drift {
+  border-color: color-mix(
+    in srgb,
+    var(--admin-status-broken) 35%,
+    var(--admin-border-color)
+  );
+}
+
+.migrations-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-sm);
+  flex-wrap: wrap;
+}
+
+.migrations-card-desc {
+  margin: 0;
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-text-muted);
+}
+
+.migrations-model {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ---- Dependencies ---- */
+.migrations-deps {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--otto-space-sm);
+}
+
+.migrations-dep {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--otto-space-xs);
+  padding: 1px var(--otto-space-xs);
+  border: 1px solid var(--admin-border-color);
+  border-radius: 9999px;
+  background: var(--admin-bg);
+}
+
+.migrations-dep em {
+  font-style: normal;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.migrations-dep--ok em {
+  color: var(--admin-status-healthy);
+}
+
+.migrations-dep--wait em {
+  color: var(--admin-status-caution);
+}
+
+/* ---- Applied table extras (reuses .data-table) ---- */
+.migrations-row-desc {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--otto-font-family);
+  font-size: 11px;
+  color: var(--admin-text-muted);
+}
+
+/* ---- Drift digests + diff ---- */
+.migrations-digests {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--otto-space-sm);
+  border: 1px solid var(--admin-border-color);
+  border-radius: var(--otto-radius-sm);
+  overflow: hidden;
+}
+
+.migrations-digest-cell {
+  display: grid;
+  gap: 3px;
+  padding: var(--otto-space-sm) var(--otto-space-md);
+  background: var(--admin-bg);
+}
+
+.migrations-digest-arrow {
+  color: var(--admin-text-muted);
+}
+
+.migrations-digest {
+  color: var(--admin-text-muted);
+  margin-left: auto;
+}
+
+.migrations-diff {
+  display: grid;
+  gap: var(--otto-space-xs);
+}
+
+.migrations-diff-line {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-sm);
+  padding: var(--otto-space-xs) var(--otto-space-sm);
+  border-left: 2px solid var(--admin-status-neutral);
+  border-radius: 2px;
+}
+
+.migrations-diff-line--healthy {
+  border-left-color: var(--admin-status-healthy);
+  background: rgba(5, 150, 105, 0.08);
+}
+.migrations-diff-line--broken {
+  border-left-color: var(--admin-status-broken);
+  background: rgba(220, 38, 38, 0.08);
+}
+.migrations-diff-line--caution {
+  border-left-color: var(--admin-status-caution);
+  background: rgba(217, 119, 6, 0.08);
+}
+
+.migrations-diff-sign {
+  font-family: var(--admin-mono);
+  font-weight: 700;
+  width: 10px;
+}
+
+.migrations-diff-line--healthy .migrations-diff-sign {
+  color: var(--admin-status-healthy);
+}
+.migrations-diff-line--broken .migrations-diff-sign {
+  color: var(--admin-status-broken);
+}
+.migrations-diff-line--caution .migrations-diff-sign {
+  color: var(--admin-status-caution);
+}
+
+/* ---- Suggested-migration link ---- */
+.migrations-suggested {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--otto-space-sm);
+}
+
+.migrations-suggested-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--otto-space-sm);
+  border: 1px solid var(--admin-status-preview);
+  border-radius: 9999px;
+  text-decoration: none;
+}
+
+.migrations-suggested-link code {
+  color: var(--admin-text);
+}
