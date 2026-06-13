@@ -150,7 +150,7 @@ module Familia
 
         lambda do |env|
           unless File.file?(index_path)
-            body = "Login UI not built. Run: npm install && npm run build\n"
+            body = "Login UI not built. Run: pnpm install && pnpm build\n"
             return [503, { 'content-type' => 'text/plain', 'content-length' => body.bytesize.to_s }, [body]]
           end
 

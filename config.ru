@@ -21,7 +21,7 @@
 #         config/puma.rb aborts a production rackup boot for that reason.
 #         See README "Deploying to production".
 # Seed:   bundle exec rake db:seed
-# Login:  set FAMILIA_ADMIN_PASSPHRASE, npm run build, then open /  (-> /login)
+# Login:  set FAMILIA_ADMIN_PASSPHRASE, pnpm build, then open /  (-> /login)
 # Token:  bundle exec rake auth:token  (Bearer for curl/CI/MCP; browsers use /login)
 
 require 'rubygems'

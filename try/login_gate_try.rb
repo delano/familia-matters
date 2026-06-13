@@ -13,7 +13,7 @@
 #
 # Drives the SAME full app config.ru runs (RackApp.build) via Rack::MockRequest;
 # the SPA-serving cases use login_app against a temp dist so they are
-# deterministic whether or not `npm run build` has run in this checkout.
+# deterministic whether or not `pnpm build` has run in this checkout.
 
 require_relative 'test_helper'
 
@@ -116,5 +116,5 @@ res = LOGIN_SPA.get('/login/deep/link')
 ## a missing build yields the operator hint, not a crash
 empty = Rack::MockRequest.new(Familia::Admin::RackApp.login_app(Dir.mktmpdir('no-dist')))
 res = empty.get('/login')
-[res.status, res.body.include?('npm run build')]
+[res.status, res.body.include?('pnpm build')]
 #=> [503, true]

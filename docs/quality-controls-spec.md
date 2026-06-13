@@ -62,10 +62,10 @@ test job must declare a `valkey` (or `redis`) service container and set
 **Files:**
 - `Gemfile`: add `bundler-audit` to `:development` group
 
-**npm:** `npm audit --audit-level=high` (built-in, no new dependency).
+**pnpm:** `pnpm audit --audit-level high` (built-in, no new dependency).
 
 **Validation:** `bundle exec bundler-audit check --update` exits 0;
-`npm audit --audit-level=high` exits 0.
+`pnpm audit --audit-level high` exits 0.
 
 ### 3. TypeScript type-check script
 
@@ -76,7 +76,7 @@ Covers `src/` (the TSX app). The JSX prototypes under `resources/01-designs/`
 use plain JSX with esbuild transform (no TS), so they are outside this
 gate. If/when prototypes migrate to TSX, extend `tsconfig.json` includes.
 
-**Validation:** `npm run typecheck` exits 0.
+**Validation:** `pnpm typecheck` exits 0.
 
 ### 4. CI workflow: `ci.yml`
 
@@ -88,7 +88,7 @@ Jobs:
   ruby-test      tryouts suite (Valkey service container)
   ruby-audit     bundler-audit
   js-typecheck   tsc --noEmit
-  js-audit       npm audit --audit-level=high
+  js-audit       pnpm audit --audit-level high
   js-build       vite build (catches import/config regressions)
 ```
 
@@ -105,14 +105,14 @@ Jobs:
 **JS jobs shared setup:**
 - Checkout familia-admin
 - Install Node (match local version)
-- `npm ci`
+- `pnpm install --frozen-lockfile`
 
 **File:** `.github/workflows/ci.yml`
 
 ### 5. Pre-commit hooks (lefthook)
 
 Lefthook over husky: repo is polyglot (Ruby + JS), lefthook is
-language-agnostic and doesn't require npm to function.
+language-agnostic and doesn't require pnpm to function.
 
 **Files:**
 - `Gemfile`: add `lefthook` to `:development` group (or install standalone)
@@ -129,7 +129,7 @@ pre-commit:
       run: bundle exec rubocop --force-exclusion {staged_files}
     typecheck:
       glob: "*.{ts,tsx}"
-      run: npm run typecheck
+      run: pnpm typecheck
 ```
 
 **Validation:** `lefthook run pre-commit` exits 0.

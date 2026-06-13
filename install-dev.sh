@@ -6,16 +6,23 @@
 #   - Creates .env with a generated FAMILIA_ADMIN_PASSPHRASE (git-ignored)
 #   - Copies Procfile.example -> Procfile for overmind/hivemind
 #   - Installs Ruby gems (bundle install)
-#   - Installs Node packages (npm install)
-#   - Cleans any pre-existing frontend build output (dist/)
+#   - Installs Node packages (pnpm install)
+#   - Cleans the SPA build output (dist/) and builds the prototype design
+#     assets (resources/01-designs/dist/)
 #   - Warns when Valkey/Redis is not reachable on 127.0.0.1:6379
 #
-# Intentionally does NOT run `npm run build`. Production assets in dist/
-# cause confusion about which files are actually being served during
-# development; the Vite dev server (npm run dev) serves the frontend
-# directly and proxies /admin/api to the Ruby backend on :9292. To
-# exercise the served flow through the Ruby gate alone, run
-# `npm run build` yourself and open http://127.0.0.1:9292/.
+# Intentionally does NOT run `pnpm build` (the /login SPA). Its output in
+# dist/ causes confusion about which files are actually being served during
+# development; the Vite dev server (pnpm dev) serves the SPA directly and
+# proxies /admin/api to the Ruby backend on :9292. To exercise the SPA's
+# served flow through the Ruby gate alone, run `pnpm build` yourself and
+# open http://127.0.0.1:9292/.
+#
+# It DOES run `pnpm build:prototypes`. The post-login design pages
+# (resources/01-designs/) are never served by Vite — the Ruby backend serves
+# them prebuilt at the web root, referencing /dist/*.js. Without this build
+# those pages 404 after login. There is no which-files-am-I-seeing confusion
+# here because Vite never serves them.
 #
 # Idempotent: safe to re-run at any time. Never overwrites an existing
 # .env, Procfile, or Procfile.dev.
@@ -98,11 +105,11 @@ if [[ ! -f "Gemfile" || ! -f "config.ru" ]]; then
 fi
 
 # Required tools — fail fast with actionable guidance rather than
-# erroring midway through bundle/npm install.
+# erroring midway through bundle/pnpm install.
 missing_required=()
 command -v ruby   &>/dev/null || missing_required+=("ruby    (>= 3.2):  https://www.ruby-lang.org/")
 command -v bundle &>/dev/null || missing_required+=("bundle  (Ruby Bundler):  https://bundler.io/")
-command -v npm    &>/dev/null || missing_required+=("npm     (Node package manager):  https://nodejs.org/")
+command -v pnpm   &>/dev/null || missing_required+=("pnpm    (Node package manager):  https://pnpm.io/installation")
 if (( ${#missing_required[@]} > 0 )); then
     echo "Error: Required tools missing:"
     for tool in "${missing_required[@]}"; do
@@ -139,11 +146,16 @@ bundle install
 
 echo "---"
 echo "Installing Node packages..."
-npm install
+pnpm install
 
 echo "---"
-echo "Removing frontend build output (dist/, resources/01-designs/dist/)..."
-rm -rf dist resources/01-designs/dist
+echo "Removing SPA build output (dist/) — the Vite dev server serves it directly..."
+rm -rf dist
+
+echo "---"
+echo "Building prototype design assets (resources/01-designs/dist/)..."
+echo "  These post-login pages are served prebuilt by the Ruby backend, not Vite."
+pnpm build:clean
 
 echo "---"
 if valkey_reachable; then
@@ -158,8 +170,9 @@ fi
 echo "---"
 echo "Setup complete."
 echo ""
-echo "  Note: npm run build was NOT run (intentional)."
-echo "  Prior build output was removed; the Vite dev server serves assets directly."
+echo "  Note: pnpm build (the /login SPA) was NOT run (intentional) —"
+echo "  the Vite dev server serves it directly. The prototype design assets"
+echo "  (resources/01-designs/dist/) WERE built; the backend serves those."
 echo ""
 if [[ "${has_process_manager}" = true ]]; then
     echo "To start (Valkey/Redis on 127.0.0.1:6379 required):"
@@ -167,7 +180,7 @@ if [[ "${has_process_manager}" = true ]]; then
 else
     echo "Install overmind/hivemind to use the Procfile, or start manually:"
     echo "  set -a; source .env; set +a; bundle exec rackup    # backend on :9292"
-    echo "  npm run dev                                        # Vite on :5173"
+    echo "  pnpm dev                                           # Vite on :5173"
 fi
 echo ""
 echo "Then open the Vite URL it prints (default http://localhost:5173/login/)"
@@ -175,4 +188,4 @@ echo "and log in with the FAMILIA_ADMIN_PASSPHRASE from .env."
 echo ""
 echo "To test:"
 echo "  bundle exec try --agent try/    # Ruby contract suites (needs Valkey/Redis)"
-echo "  npm test                        # frontend unit tests (vitest)"
+echo "  pnpm test                       # frontend unit tests (vitest)"
