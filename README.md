@@ -68,6 +68,10 @@ datasheets are in `docs/` as `docs/familia-admin-ui-design.md`.
 
 ## Running locally
 
+For first-time setup, `./install-dev.sh` installs dependencies, generates a
+git-ignored `.env` with a login passphrase, and copies the Procfile into
+place (idempotent; safe to re-run).
+
 Development is two processes plus Valkey/Redis on `127.0.0.1:6379`:
 
 ```bash
