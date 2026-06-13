@@ -68,6 +68,10 @@ datasheets are in `docs/` as `docs/familia-admin-ui-design.md`.
 
 ## Running locally
 
+For first-time setup, `./install-dev.sh` installs dependencies, generates a
+git-ignored `.env` with a login passphrase, and copies the Procfile into
+place (idempotent; safe to re-run).
+
 Development is two processes plus Valkey/Redis on `127.0.0.1:6379`:
 
 ```bash
@@ -187,6 +191,48 @@ flips the switch off deliberately for a maintenance window (EnvironmentFile
 edit + service restart) and flips it back after. GET requests are never
 affected, and the auth endpoints stay reachable so login works in read-only
 mode.
+
+### Operator attribution
+
+The admin tool authenticates with **one shared passphrase**. A successful
+login mints the session under a single subject claim — `admin` by default,
+or whatever `FAMILIA_ADMIN_SESSION_SUBJECT` is set to — and that subject is
+written verbatim into the `actor` field of every audit entry (see
+`lib/familia/admin/audit_log.rb`). So the audit trail records **`actor:
+"admin"` for every operator**: it proves *that* an authenticated session
+performed an action, not *who* the human behind it was. Treating the `actor`
+field as a verified individual identity would be a mistake — it is the shared
+principal, not a person.
+
+Attribution of who actually performed a given action is therefore a
+**process control, not a technical control**. To attribute an audit entry to
+an individual, correlate it against the SSH/jumphost session logs:
+
+1. Read the audit entry's timestamp (`at`) and `action` — from
+   `GET /admin/api/audit`, or `redis-cli` against the audit sink.
+2. Operators reach the tool only through the SSH tunnel, and SSH is reachable
+   only over VPN via the jumphost (see "SSH tunnel" above). The jumphost and
+   prod-host SSH logs record which keyed individual held the session at that
+   wall-clock time.
+3. Match the audit entry's timestamp + action to the SSH/jumphost session that
+   was open against the admin port (default `9292`) at that moment. That
+   individual — identified by their SSH key on the jumphost — is the operator
+   accountable for the action.
+
+**Limitation (accepted, documented).** This correlation is the *only*
+attribution mechanism: the tool itself cannot distinguish two operators who
+both hold the shared passphrase — in the audit trail they are indistinguishable,
+both recorded as the shared `actor` principal (`"admin"` /
+`FAMILIA_ADMIN_SESSION_SUBJECT`). Attribution depends entirely on the integrity
+and retention of the SSH/jumphost logs and on those logs and the audit trail
+sharing a common clock. There is no in-tool capture of operator identity by
+design — the alternatives (an honor-system login-name field, or per-operator
+tokens) were considered and not adopted; see issue #24.
+
+**Process owner: @delano.** The owner is accountable for ensuring SSH/jumphost
+audit logging is enabled, retained at least as long as the audit trail
+(`FAMILIA_ADMIN_AUDIT_LIMIT`), and time-synchronised with the admin host, and
+for running the correlation when an audit entry must be attributed to a person.
 
 ### Environment variable reference
 

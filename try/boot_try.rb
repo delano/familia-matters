@@ -25,8 +25,8 @@ APP_DIR = File.expand_path('..', __dir__)
 # Run `Boot.setup!` in a fresh Ruby subprocess under a given RACK_ENV, with the
 # dev-default keys (i.e. no FAMILIA_ADMIN_PASETO_KEY / _ENCRYPTION_KEY override).
 # Returns the child's exit status (0 = booted clean, nonzero = refused/raised).
-# rack_env nil = genuinely unset (the env-resolution cases below need both
-# RACK_ENV and APP_ENV absent in the child).
+# rack_env nil = genuinely unset (the env-resolution cases below need RACK_ENV
+# absent in the child — it is the sole environment signal the guard reads).
 def boot_exit(rack_env, overrides = {})
   script = "$LOAD_PATH.unshift(File.join('#{APP_DIR}','lib')); " \
            "require 'familia/admin/boot'; " \
@@ -35,7 +35,6 @@ def boot_exit(rack_env, overrides = {})
   # apply per-case overrides (real keys / passphrase) on top.
   env = {
     'RACK_ENV' => rack_env,
-    'APP_ENV' => nil,
     'FAMILIA_ADMIN_PASETO_KEY' => nil,
     'FAMILIA_ADMIN_ENCRYPTION_KEY' => nil,
     'FAMILIA_ADMIN_PASSPHRASE' => nil,
@@ -94,7 +93,6 @@ RUBY
 def embedded_env(rack_env, overrides, preconfigure)
   {
     'RACK_ENV' => rack_env,
-    'APP_ENV' => nil,
     'FAMILIA_ADMIN_PASETO_KEY' => nil,
     'FAMILIA_ADMIN_ENCRYPTION_KEY' => nil,
     'FAMILIA_ADMIN_PASSPHRASE' => nil,
@@ -141,14 +139,24 @@ REAL_PASETO_AND_PASS = {
 ))
 @prod_no_enc_var             = boot_exit('production', REAL_PASETO_AND_PASS)
 
-# Env resolution is path-aware (round 3): with neither RACK_ENV nor APP_ENV
-# set, the standalone path keeps its historical development default (the
-# no-env rake/rackup dev flow, T2 AC2), while the embedded path treats the
-# env as unresolved and runs the full guard — a misconfigured production
-# host must not skip the guard onto the public dev PASETO key.
+# Env resolution is path-aware (round 3): with RACK_ENV unset, the standalone
+# path keeps its historical development default (the no-env rake/rackup dev
+# flow, T2 AC2), while the embedded path treats the env as unresolved and runs
+# the full guard — a misconfigured production host must not skip the guard onto
+# the public dev PASETO key.
 @standalone_noenv        = boot_exit(nil)
 @emb_noenv_devdefaults   = embedded_exit(nil)
 @emb_noenv_realsecrets   = embedded_exit(nil, REAL_PASETO_AND_PASS)
+
+# RACK_ENV is the SOLE environment signal for this Rack process: APP_ENV is not
+# consulted (the vestigial `|| ENV['APP_ENV']` fallback was removed so config/
+# puma.rb, config.ru, the systemd unit, the try suite, and this guard all key
+# off one signal). Pin that contract: with RACK_ENV unset and APP_ENV=production
+# set, the standalone boot still takes the development default and boots on the
+# dev-default keys — APP_ENV alone does NOT make the process production, so the
+# key-guard does NOT refuse. (Fails against the old `RACK_ENV || APP_ENV` code,
+# which read APP_ENV=production and refused with exit 1.)
+@standalone_appenv_only  = boot_exit(nil, 'APP_ENV' => 'production')
 
 # FAMILIA_ADMIN_ENCRYPTION_KEY set to a REAL (non-dev-default) value on the
 # embedded path is never consumed; without a warning an operator who
@@ -224,14 +232,23 @@ REAL_PASETO_AND_PASS = {
 @prod_no_enc_var != 0
 #=> true
 
-## standalone boot with NEITHER RACK_ENV nor APP_ENV set keeps the historical
-## development default and boots (the no-env rake/rackup dev flow, T2 AC2)
+## standalone boot with RACK_ENV unset keeps the historical development
+## default and boots (the no-env rake/rackup dev flow, T2 AC2)
 @standalone_noenv
 #=> 0
 
-## embedded boot with NEITHER RACK_ENV nor APP_ENV set FAILS CLOSED on
-## dev-default secrets: an env-less host process is misconfigured, not
-## development, and must not skip the guard onto the public dev PASETO key
+## RACK_ENV is the SOLE environment signal: with RACK_ENV unset and
+## APP_ENV=production set, the standalone boot still takes the development
+## default and boots on the dev-default keys — APP_ENV alone does NOT make the
+## process production, so the key-guard does NOT refuse. (This pins the removal
+## of the vestigial `|| ENV['APP_ENV']` fallback: it fails against the old
+## `RACK_ENV || APP_ENV` code, which read APP_ENV=production and refused.)
+@standalone_appenv_only
+#=> 0
+
+## embedded boot with RACK_ENV unset FAILS CLOSED on dev-default secrets: an
+## env-less host process is misconfigured, not development, and must not skip
+## the guard onto the public dev PASETO key
 @emb_noenv_devdefaults != 0
 #=> true
 
