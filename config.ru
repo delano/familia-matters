@@ -32,9 +32,23 @@ $LOAD_PATH.unshift(File.join(APP_ROOT, 'lib'))
 
 # ---------------------------------------------------------------------------
 # Familia connection + encryption + models + admin code (shared with rake).
+#
+# Three boot modes, selected by FAMILIA_ADMIN_APP (see "Admin your own
+# application" in the README):
+#   * FAMILIA_ADMIN_APP set    -> setup_host_app!: require your app (it owns the
+#                                 Familia config + registers its models), then run
+#                                 the embedded path. The way to admin OneTimeSecret.
+#   * FAMILIA_ADMIN_MODELS set -> setup! reflects your model files under the
+#                                 admin-owned standalone config.
+#   * neither set              -> the bundled demo fixtures (Customer/Session/ApiKey).
 # ---------------------------------------------------------------------------
 require 'familia/admin/boot'
-Familia::Admin::Boot.setup!(APP_ROOT)
+host_app = ENV['FAMILIA_ADMIN_APP'].to_s.strip
+if host_app.empty?
+  Familia::Admin::Boot.setup!(APP_ROOT)
+else
+  Familia::Admin::Boot.setup_host_app!(host_app)
+end
 
 # ---------------------------------------------------------------------------
 # HTTP stack: OriginGuard -> (/admin/api + /_mcp -> Otto) | static designs.
