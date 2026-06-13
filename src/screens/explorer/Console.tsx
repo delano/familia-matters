@@ -13,7 +13,7 @@
 // escalate or simulate.
 
 import type React from 'react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { ErrorState } from '../../components/ErrorState'
 import { toResourceError, type ResourceError } from '../../data/resource'
@@ -24,8 +24,8 @@ import { formatCommandResult } from './format'
 
 /** One settled run, kept in history (newest last, like a terminal). */
 type HistoryEntry =
-  | { kind: 'result'; line: string; result: CommandResult }
-  | { kind: 'error'; line: string; error: ResourceError }
+  | { id: number; kind: 'result'; line: string; result: CommandResult }
+  | { id: number; kind: 'error'; line: string; error: ResourceError }
 
 /** Split a raw command line into the verb and its argv. */
 function parseLine(line: string): { cmd: string; args: string[] } {
@@ -37,6 +37,8 @@ function parseLine(line: string): { cmd: string; args: string[] } {
 export function Console(): React.JSX.Element {
   const [input, setInput] = useState('')
   const [history, setHistory] = useState<HistoryEntry[]>([])
+  // Monotonic id per run, so history keys are stable and never reuse an index.
+  const nextId = useRef(0)
   const mutation = useMutation()
 
   const run = async (): Promise<void> => {
@@ -59,16 +61,19 @@ export function Console(): React.JSX.Element {
       return outcome
     })
 
+    // Assign the id in the handler (not the updater) so it stays pure under
+    // StrictMode's double-invocation.
+    const id = nextId.current++
     setHistory((prev) => {
       if (result !== null) {
-        return [...prev, { kind: 'result', line, result }]
+        return [...prev, { id, kind: 'result', line, result }]
       }
       // A failure: map the captured outcome to the renderable ResourceError.
       // The 401 case has no body to show beyond the reauth overlay; default to
       // unreachable only if the outcome somehow never landed.
       const error: ResourceError =
         outcome && !outcome.ok ? toResourceError(outcome) : { kind: 'unreachable' }
-      return [...prev, { kind: 'error', line, error }]
+      return [...prev, { id, kind: 'error', line, error }]
     })
   }
 
@@ -85,8 +90,8 @@ export function Console(): React.JSX.Element {
 
       {history.length > 0 && (
         <ol className="explorer-console-history" data-testid="explorer-console-history">
-          {history.map((entry, i) => (
-            <ConsoleEntry key={i} entry={entry} />
+          {history.map((entry) => (
+            <ConsoleEntry key={entry.id} entry={entry} />
           ))}
         </ol>
       )}

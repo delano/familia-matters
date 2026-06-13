@@ -62,11 +62,16 @@ export function totalIssues(report: HealthReport): number {
 }
 
 /**
- * Whether the report is healthy. Trusts an explicit healthy:true ONLY when the
- * derived total is also zero — a report that claims healthy while carrying
- * drift is treated as having issues (the operator must see the drift).
+ * Whether the report is healthy. An explicit healthy:false ALWAYS wins — a
+ * degraded/incomplete report (complete:false) can carry empty issue arrays yet
+ * still be unhealthy, and surfacing the green "no issues" banner for it would let
+ * an operator read a partially-audited model as clean. Otherwise health requires
+ * a zero derived total, so a report that claims healthy while carrying drift is
+ * still treated as having issues (the operator must see the drift). This matches
+ * the server's own done-frame signal (api.rb stream_repair tracks report.healthy?).
  */
 export function isHealthy(report: HealthReport): boolean {
+  if (report.healthy === false) return false
   return totalIssues(report) === 0
 }
 
