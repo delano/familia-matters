@@ -6,6 +6,8 @@
     "limit": 50,
     "count_fast": 1284,
     "count_fast_note": "From the instances timeline (O(1)). May include phantoms. The integrity console reconciles against a SCAN count.",
+    "has_more": true,
+    "has_more_note": "Whether the timeline yielded a full page of `limit` ids BEFORE phantom compaction. Pagination keys off THIS, not records.length: load_multi drops phantoms, so a full page of ids can return fewer live records, and driving 'next' off records.length would silently truncate a phantom-prone dataset.",
     "records": [
       { "custid": "cust_8f2a91", "email": "alice@example.com", "name": "Alice Ng", "status": "active", "created_at": 1730419200, "updated_at": 1748736000, "api_secret": "[CONCEALED]" },
       { "custid": "cust_4410bd", "email": "bob@example.com", "name": "Bob Tran", "status": "pending", "created_at": 1733011200, "updated_at": 1733011200, "api_secret": "[CONCEALED]" },

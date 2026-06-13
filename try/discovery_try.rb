@@ -19,9 +19,13 @@ reset_and_seed!
 @meta['familia_version']
 #=> Familia::VERSION
 
-## every registered Horreum model describes (customer/session/api_key + audit_log)
-@meta['models'].map { |m| m['model'] }.sort
-#==> _.include?('customer') && _.include?('session') && _.include?('api_key')
+## every administrable host model describes (customer/session/api_key). The
+## admin's OWN internal models (Familia::Admin::AuditLog) are EXCLUDED from the
+## surface — they are not administrable, and the audit trail has its dedicated
+## GET /admin/api/audit view, not a degenerate generic-model entry.
+@names = @meta['models'].map { |m| m['model'] }
+[%w[customer session api_key].all? { |n| @names.include?(n) }, @names.include?('audit_log')]
+#=> [true, false]
 
 ## the customer descriptor carries the documented metadata keys. json_schema is
 ## absent (no per-model schema registered) and logical_database is absent
@@ -87,6 +91,15 @@ status, body = adm_get('/admin/api/models/customer')
 status, body = adm_get('/admin/api/models/nope')
 [status, body['error'], body['resource']]
 #=> [404, "not_found", "model"]
+
+## the admin's own internal model (Familia::Admin::AuditLog) is unresolvable
+## through every per-model route: a 404 on describe AND on records, matching its
+## exclusion from the model list. It is not administrable; GET /admin/api/audit
+## is its only surface.
+status_d, body_d = adm_get('/admin/api/models/audit_log')
+status_r, body_r = adm_get('/admin/api/models/audit_log/records')
+[status_d, body_d['error'], status_r, body_r['error']]
+#=> [404, "not_found", 404, "not_found"]
 
 ## role:admin is required: a missing bearer token is denied (401, the only gate)
 get '/admin/api/_meta', {}, {}

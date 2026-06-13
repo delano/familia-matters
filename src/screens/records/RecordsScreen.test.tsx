@@ -390,3 +390,40 @@ describe('index queries (T5 contract: no force, scan gate is a refusal)', () => 
     expect(screen.queryByTestId('records-querybar')).not.toBeInTheDocument()
   })
 })
+
+describe('pagination keys off has_more, not records.length (phantom-safe)', () => {
+  // The backend drops phantoms (timeline ids with no live object) from records[],
+  // so a full page of ids can return fewer live records. "Next" must follow the
+  // timeline cursor (has_more), never records.length — otherwise the operator is
+  // silently cut off at the first phantom-bearing page of a real OTS dataset.
+  function pageHandler(hasMore: boolean): Handler {
+    return (path, init) => {
+      if (path.startsWith('/models/customer/records?')) {
+        return {
+          ok: true,
+          data: {
+            model: 'customer',
+            offset: 0,
+            limit: 50,
+            count_fast: 1284,
+            has_more: hasMore,
+            records: [CUSTOMER_REC], // one live record on a page that had more ids
+          },
+        }
+      }
+      return standardHandler(path, init)
+    }
+  }
+
+  it('keeps Next enabled when has_more is true despite a short (phantom-thinned) page', async () => {
+    renderRecords(pageHandler(true))
+    await screen.findByTestId('records-table')
+    expect(screen.getByTestId('records-next')).not.toBeDisabled()
+  })
+
+  it('disables Next when has_more is false (timeline exhausted)', async () => {
+    renderRecords(pageHandler(false))
+    await screen.findByTestId('records-table')
+    expect(screen.getByTestId('records-next')).toBeDisabled()
+  })
+})

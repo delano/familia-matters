@@ -179,7 +179,7 @@ interface IntegrityBodyProps {
 
 function IntegrityBody(props: IntegrityBodyProps): React.JSX.Element {
   const { model, openStream } = props
-  const { state: authState } = useAuth()
+  const { state: authState, call } = useAuth()
   const canRepair =
     authState.status === 'authenticated' &&
     (authState.claims.permissions ?? []).includes('repair')
@@ -300,6 +300,15 @@ function IntegrityBody(props: IntegrityBodyProps): React.JSX.Element {
       onConnectionError() {
         streamRef.current = null
         setRepair({ kind: 'connlost' })
+        // EventSource hides the HTTP status, so a session that expired mid-repair
+        // is indistinguishable from a network drop. Probe the session the way
+        // every REST path does: a dead cookie 401s on /auth/session, and call()
+        // turns that into session/expired — opening the reauth overlay over the
+        // still-mounted screen (location preserved) instead of stranding the
+        // operator on a bare "connection lost" panel. A live session (a genuine
+        // network blip) changes nothing: the connlost panel stands and the
+        // operator can re-run. This closes the one 401 hole the SSE path had.
+        void call((api) => api.request('/auth/session'))
       },
     })
   }
@@ -688,7 +697,9 @@ function ConnLostPanel(props: { canRetry: boolean; onRetry(): void }): React.JSX
           The EventSource connection failed and the stream did NOT reconnect (a
           reconnect would re-run the repair audit server-side). Whatever the
           server committed before the drop is already written. Re-run the check
-          to see the current state, then re-apply if needed.
+          to see the current state, then re-apply if needed. If your session
+          expired mid-repair, the re-authentication prompt will appear over this
+          panel — sign back in and re-run; nothing here is lost.
         </p>
       </div>
       <div className="integrity-panel-foot">

@@ -96,6 +96,14 @@ module Admin
         offset: offset,
         limit: limit,
         count_fast: safe { klass.count },
+        # Pagination MUST key off the timeline cursor, never records.length:
+        # load_multi drops phantoms (timeline ids with no live object), so a full
+        # page of `limit` ids can materialize fewer live records. A "next" button
+        # driven off records.length would disable on the FIRST phantom-bearing page
+        # and silently hide the rest of a real (phantom-prone) dataset — exactly the
+        # failure the integrity console exists to surface. has_more reflects whether
+        # the timeline yielded a full page of ids BEFORE compaction.
+        has_more: ids.length == limit,
         records: records.map { |r| serialize(r) },
       })
     end
@@ -335,17 +343,20 @@ module Admin
     # ----- migrations ------------------------------------------------------
 
     def migration_status
+      return json({ status: nil }) unless migrations_available?
       runner = safe { Familia::Migration::Runner.new }
       json({ status: safe { runner&.status } })
     end
 
     def schema_drift
+      return json({ drift: nil }) unless migrations_available?
       registry = safe { Familia::Migration::Registry.new }
       json({ drift: safe { registry&.schema_drift } })
     end
 
     # POST /migrations/run?dry_run=true&limit=
     def run_migrations
+      return bad_request('migration runner unavailable') unless migrations_available?
       runner = safe { Familia::Migration::Runner.new }
       return bad_request('migration runner unavailable') unless runner
       dry = truthy?(param(:dry_run))
@@ -354,6 +365,7 @@ module Admin
     end
 
     def rollback
+      return bad_request('migration runner unavailable') unless migrations_available?
       runner = safe { Familia::Migration::Runner.new }
       return bad_request('migration runner unavailable') unless runner
       audit!(:rollback, id: param(:id))
@@ -548,7 +560,16 @@ module Admin
       # resolve_class snake_cases the name and looks it up in Familia.members;
       # member_by_config_name is private in Familia 2.10, so calling it here
       # only produced a NoMethodError that safe{} would log on every request.
-      safe { Familia.resolve_class(name) }
+      klass = safe { Familia.resolve_class(name) }
+      return nil unless klass
+      # The admin's own internal models (Familia::Admin::AuditLog) are registered
+      # Familia members but are NOT administrable: excluded from /_meta and the
+      # model list, they must also be unresolvable through every per-model route
+      # (records/describe/integrity/collections/query/stream), so the surface is
+      # consistent. The audit trail has its own endpoint (GET /admin/api/audit).
+      return nil unless Familia::Admin::Descriptor.administrable?(klass)
+
+      klass
     end
 
     # Admin serializer: all persistent fields, encrypted masked, transient omitted.
@@ -620,8 +641,13 @@ module Admin
     end
 
     # Best-effort key -> {model, id} mapping using each known class's key pattern.
+    # Restricted to administrable models so the raw explorer never offers a
+    # "view as model" link that would 404 (the admin's own internal AuditLog
+    # keys stay raw keys with no model mapping).
     def map_key_to_model(key)
       Array(safe { Familia.members }).each do |klass|
+        next unless Familia::Admin::Descriptor.administrable?(klass)
+
         id = safe { klass.extract_identifier_from_key(key) }
         return { model: klass.config_name, id: id } if id && !id.empty?
       end
@@ -697,6 +723,17 @@ module Admin
 
     def truthy?(v)
       %w[1 true yes on].include?(v.to_s.downcase)
+    end
+
+    # Whether Familia ships its optional migration component. Familia 2.10.1 (and
+    # apps pinned to it, e.g. OneTimeSecret) do NOT define Familia::Migration, so
+    # probing Familia::Migration::Runner/Registry through safe{} would raise
+    # NameError on every status/drift poll and log it (Util#safe logs by policy) —
+    # turning the expected "no migration runner" state into per-request stderr
+    # noise. Gate on the namespace (mirrors descriptor.rb's defined?(SchemaRegistry)
+    # guard) so the honest unavailable state is reached without raising.
+    def migrations_available?
+      defined?(Familia::Migration) ? true : false
     end
 
     # body_json comes from Familia::Admin::Util (shared with Admin::Sessions).

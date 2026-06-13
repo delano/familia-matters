@@ -102,6 +102,12 @@ export function RecordList(props: RecordListProps): React.JSX.Element {
     const data = page.state.data
     const records = data.records ?? []
     const countFast = data.count_fast
+    // Drive "next" off the backend's timeline-cursor signal, NOT records.length:
+    // load_multi drops phantoms, so a full page of ids can return fewer records,
+    // and `records.length < PAGE_LIMIT` would disable paging on the first
+    // phantom-bearing page and hide the rest of the dataset. Fall back to the
+    // length heuristic only if an older backend omits has_more.
+    const hasMore = data.has_more ?? records.length >= PAGE_LIMIT
 
     return (
       <>
@@ -126,7 +132,7 @@ export function RecordList(props: RecordListProps): React.JSX.Element {
             <button
               type="button"
               data-testid="records-next"
-              disabled={records.length < PAGE_LIMIT}
+              disabled={!hasMore}
               onClick={() => setOffset(offset + PAGE_LIMIT)}
             >
               Next ›
