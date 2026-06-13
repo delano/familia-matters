@@ -1,3 +1,11 @@
+> **Status: superseded (closed) — #23 / T7.** This issue tracked replacing the
+> prototype's runtime CDN dependencies (unpkg React/ReactDOM/Babel-standalone and a
+> Google Font) with a self-hosted Vite build. T7 made the Vite SPA under `src/` the
+> entire frontend: it bundles React locally via Vite (no CDN, no in-browser Babel)
+> and the backend serves hashed local assets same-origin. The goal is met for the
+> production frontend; the prototype HTML/JSX enumerated below is archived under
+> `resources/archive/01-designs/`. No action remains; kept as a record.
+
 ## Problem Statement
 
 Every design/prototype HTML entrypoint loads React, ReactDOM, and Babel standalone from `unpkg.com` at runtime and transpiles JSX in-browser via `type="text/babel"`. A stylesheet also pulls a Google Font at runtime. These are hard runtime dependencies on third-party CDNs (availability, privacy, supply-chain, and compliance concerns) and are unsuitable for a self-hosted admin tool. We want all third-party assets discovered and replaced with local, self-hosted assets produced by a Vite 8+ build, eliminating external runtime fetches.

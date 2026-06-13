@@ -21,9 +21,8 @@ export default defineConfig({
     },
   },
   test: {
-    // The real admin SPA lives under src/. Scope the runner there so the
-    // rejected prototype suites under resources/01-designs/prototype (governed
-    // by vite.config.prototypes.ts) are not collected by the main pipeline.
+    // The admin SPA is the entire frontend and lives under src/; scope the
+    // runner there.
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     environment: 'jsdom',
     globals: true,

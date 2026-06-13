@@ -62,5 +62,3 @@ jobs:
         run: pnpm test
       - name: Typecheck + production build (emits the /login SPA)
         run: pnpm build
-      - name: Prototype client adapter tests
-        run: node resources/01-designs/prototype/backend-client.test.mjs

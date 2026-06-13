@@ -4,8 +4,6 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "build:prototypes": "vite build --config vite.config.prototypes.ts",
-    "build:clean": "rm -rf resources/01-designs/dist && pnpm build:prototypes",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
