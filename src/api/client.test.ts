@@ -203,13 +203,27 @@ describe('createAdminApi.request', () => {
     expect(result).toEqual({ ok: false, reason: 'unauthenticated' })
   })
 
-  it('403 -> forbidden with message from body.error', async () => {
+  it('403 -> forbidden with message from body.error and the parsed body', async () => {
     const fetch = mockFetch(jsonResponse({ error: 'missing repair permission' }, 403))
     const result = await createAdminApi({ fetch }).request('/repair')
     expect(result).toEqual({
       ok: false,
       reason: 'forbidden',
       message: 'missing repair permission',
+      body: { error: 'missing repair permission' },
+    })
+  })
+
+  it('403 body carries auxiliary fields (command_blocked + required_tier)', async () => {
+    const fetch = mockFetch(
+      jsonResponse({ error: 'command_blocked', required_tier: 'danger' }, 403),
+    )
+    const result = await createAdminApi({ fetch }).request('/raw/command')
+    expect(result).toEqual({
+      ok: false,
+      reason: 'forbidden',
+      message: 'command_blocked',
+      body: { error: 'command_blocked', required_tier: 'danger' },
     })
   })
 
@@ -219,13 +233,29 @@ describe('createAdminApi.request', () => {
     expect(result).toEqual({ ok: false, reason: 'forbidden', message: undefined })
   })
 
-  it('other non-2xx -> error with status', async () => {
+  it('other non-2xx -> error with status and the parsed body', async () => {
     const fetch = mockFetch(jsonResponse({ error: 'boom' }, 500))
     const result = await createAdminApi({ fetch }).request('/repair')
-    expect(result).toEqual({ ok: false, reason: 'error', status: 500 })
+    expect(result).toEqual({
+      ok: false,
+      reason: 'error',
+      status: 500,
+      body: { error: 'boom' },
+    })
   })
 
-  it('network throw -> error', async () => {
+  it('400 scan_unavailable arrives as status + body, not an anonymous error', async () => {
+    const fetch = mockFetch(jsonResponse({ error: 'scan_unavailable' }, 400))
+    const result = await createAdminApi({ fetch }).request('/models/customer/index/nope')
+    expect(result).toEqual({
+      ok: false,
+      reason: 'error',
+      status: 400,
+      body: { error: 'scan_unavailable' },
+    })
+  })
+
+  it('network throw -> error with NO status (the backend-unreachable signal)', async () => {
     const result = await createAdminApi({ fetch: throwingFetch('down') }).request('/repair')
     expect(result).toEqual({ ok: false, reason: 'error' })
   })

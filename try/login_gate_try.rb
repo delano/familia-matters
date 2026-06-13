@@ -1,11 +1,12 @@
 # try/login_gate_try.rb
 #
-# LOGIN-GATEWAY domain -- the browser entry flow that puts the prototype UI
-# behind the session cookie (rack_app.rb dispatch/login_app):
+# LOGIN-GATEWAY domain -- the browser entry flow that puts the Vite SPA behind
+# the session cookie (rack_app.rb dispatch/login_app):
 #
-#   * unauthenticated browser hits on the static designs 302 to
-#     /login?return_to=<original path+query>;
-#   * a valid session cookie passes the gate; garbage/expired cookies do not;
+#   * unauthenticated browser hits on the web root (and any non-API, non-/login
+#     path) 302 to /login?return_to=<original path+query>;
+#   * a valid session cookie passes the gate and is served the SPA; garbage and
+#     expired cookies do not;
 #   * /login itself is NEVER gated (no redirect loop) and serves the built SPA
 #     (or the operator build hint when dist/ is absent);
 #   * the API surface is untouched -- Bearer clients keep seeing 401/403
@@ -13,7 +14,7 @@
 #
 # Drives the SAME full app config.ru runs (RackApp.build) via Rack::MockRequest;
 # the SPA-serving cases use login_app against a temp dist so they are
-# deterministic whether or not `npm run build` has run in this checkout.
+# deterministic whether or not `pnpm build` has run in this checkout.
 
 require_relative 'test_helper'
 
@@ -31,6 +32,19 @@ unless defined?(FAKE_DIST)
 end
 LOGIN_SPA = Rack::MockRequest.new(Familia::Admin::RackApp.login_app(FAKE_DIST)) unless defined?(LOGIN_SPA)
 
+# A deterministic gate: real session verification, but the SPA served from the
+# stub dist above so "a valid cookie is served the SPA" holds whether or not
+# `pnpm build` has run in this checkout. The api arm is a sentinel — none of the
+# cases below hit an /admin/api path, so it is never called.
+unless defined?(GATED)
+  GATED = Rack::MockRequest.new(
+    Familia::Admin::RackApp.dispatch(
+      api: ->(_env) { [500, { 'content-type' => 'text/plain' }, ['unused']] },
+      spa: Familia::Admin::RackApp.login_app(FAKE_DIST),
+    ),
+  )
+end
+
 def gate_cookie(token)
   { 'HTTP_COOKIE' => "#{Familia::Admin::Auth::SESSION_COOKIE}=#{token}" }
 end
@@ -39,22 +53,23 @@ end
 # THE GATE: static designs require a verifiable session cookie.
 # ===========================================================================
 
-## an unauthenticated browser hit on the prototype root redirects to the login gateway
+## an unauthenticated browser hit on the web root redirects to the login gateway
 res = BROWSER.get('/')
 [res.status, res.headers['location']]
 #=> [302, "/login?return_to=%2F"]
 
 ## the original path AND query round-trip through return_to. PATH_INFO arrives
 ## still percent-encoded, so one URLSearchParams decode in the SPA yields the
-## exact original request target ('/Familia%20Admin.html?screen=records').
-res = BROWSER.get('/Familia%20Admin.html?screen=records')
+## exact original request target ('/a%20b?c=d').
+res = BROWSER.get('/a%20b?c=d')
 res.headers['location']
-#=> "/login?return_to=%2FFamilia%2520Admin.html%3Fscreen%3Drecords"
+#=> "/login?return_to=%2Fa%2520b%3Fc%3Dd"
 
-## a valid session cookie passes the gate to the design assets
+## a valid session cookie passes the gate and is served the SPA (from the stub
+## dist, so this holds whether or not `pnpm build` has run in this checkout)
 tok = Familia::Admin::Auth.mint_session(ttl: 60)
-res = BROWSER.get('/', gate_cookie(tok))
-[res.status, res.body.include?('<')]
+res = GATED.get('/', gate_cookie(tok))
+[res.status, res.body.include?('LOGIN-SPA')]
 #=> [200, true]
 
 ## a garbage cookie is redirected, not served
@@ -116,5 +131,5 @@ res = LOGIN_SPA.get('/login/deep/link')
 ## a missing build yields the operator hint, not a crash
 empty = Rack::MockRequest.new(Familia::Admin::RackApp.login_app(Dir.mktmpdir('no-dist')))
 res = empty.get('/login')
-[res.status, res.body.include?('npm run build')]
+[res.status, res.body.include?('pnpm build')]
 #=> [503, true]

@@ -6,16 +6,18 @@
 #   - Creates .env with a generated FAMILIA_ADMIN_PASSPHRASE (git-ignored)
 #   - Copies Procfile.example -> Procfile for overmind/hivemind
 #   - Installs Ruby gems (bundle install)
-#   - Installs Node packages (npm install)
-#   - Cleans any pre-existing frontend build output (dist/)
+#   - Installs Node packages (pnpm install)
+#   - Builds the Vite SPA (dist/) — the whole frontend the Ruby backend serves
 #   - Warns when Valkey/Redis is not reachable on 127.0.0.1:6379
 #
-# Intentionally does NOT run `npm run build`. Production assets in dist/
-# cause confusion about which files are actually being served during
-# development; the Vite dev server (npm run dev) serves the frontend
-# directly and proxies /admin/api to the Ruby backend on :9292. To
-# exercise the served flow through the Ruby gate alone, run
-# `npm run build` yourself and open http://127.0.0.1:9292/.
+# The Vite SPA (src/ -> dist/) is the entire frontend: the Ruby backend serves
+# it at /login and, behind the session cookie, at the web root. So this builds
+# dist/ and you can open http://127.0.0.1:9292/ directly. For live frontend
+# work, `pnpm dev` runs the SPA on Vite's own port (:5173) and proxies
+# /admin/api to the Ruby backend on :9292; that path does not need dist/.
+#
+# (The old Claude Design prototype under resources/01-designs/ is no longer
+# served — the SPA replaced it, #23 / T7 — so this script no longer builds it.)
 #
 # Idempotent: safe to re-run at any time. Never overwrites an existing
 # .env, Procfile, or Procfile.dev.
@@ -98,11 +100,11 @@ if [[ ! -f "Gemfile" || ! -f "config.ru" ]]; then
 fi
 
 # Required tools — fail fast with actionable guidance rather than
-# erroring midway through bundle/npm install.
+# erroring midway through bundle/pnpm install.
 missing_required=()
 command -v ruby   &>/dev/null || missing_required+=("ruby    (>= 3.2):  https://www.ruby-lang.org/")
 command -v bundle &>/dev/null || missing_required+=("bundle  (Ruby Bundler):  https://bundler.io/")
-command -v npm    &>/dev/null || missing_required+=("npm     (Node package manager):  https://nodejs.org/")
+command -v pnpm   &>/dev/null || missing_required+=("pnpm    (Node package manager):  https://pnpm.io/installation")
 if (( ${#missing_required[@]} > 0 )); then
     echo "Error: Required tools missing:"
     for tool in "${missing_required[@]}"; do
@@ -139,11 +141,11 @@ bundle install
 
 echo "---"
 echo "Installing Node packages..."
-npm install
+pnpm install
 
 echo "---"
-echo "Removing frontend build output (dist/, resources/01-designs/dist/)..."
-rm -rf dist resources/01-designs/dist
+echo "Building the Vite SPA (dist/) — the Ruby backend serves it at /login and the web root..."
+pnpm build
 
 echo "---"
 if valkey_reachable; then
@@ -158,8 +160,9 @@ fi
 echo "---"
 echo "Setup complete."
 echo ""
-echo "  Note: npm run build was NOT run (intentional)."
-echo "  Prior build output was removed; the Vite dev server serves assets directly."
+echo "  The Vite SPA (dist/) was built — the Ruby backend serves it at"
+echo "  http://127.0.0.1:9292/ (and /login). For live frontend work, pnpm dev"
+echo "  runs it on :5173 and proxies the API to :9292."
 echo ""
 if [[ "${has_process_manager}" = true ]]; then
     echo "To start (Valkey/Redis on 127.0.0.1:6379 required):"
@@ -167,12 +170,13 @@ if [[ "${has_process_manager}" = true ]]; then
 else
     echo "Install overmind/hivemind to use the Procfile, or start manually:"
     echo "  set -a; source .env; set +a; bundle exec rackup    # backend on :9292"
-    echo "  npm run dev                                        # Vite on :5173"
+    echo "  pnpm dev                                           # Vite on :5173"
 fi
 echo ""
-echo "Then open the Vite URL it prints (default http://localhost:5173/login/)"
-echo "and log in with the FAMILIA_ADMIN_PASSPHRASE from .env."
+echo "Then open http://127.0.0.1:9292/ (backend serves the built SPA), or the"
+echo "Vite dev URL it prints (default http://localhost:5173/login/) for live"
+echo "reload. Log in with the FAMILIA_ADMIN_PASSPHRASE from .env."
 echo ""
 echo "To test:"
 echo "  bundle exec try --agent try/    # Ruby contract suites (needs Valkey/Redis)"
-echo "  npm test                        # frontend unit tests (vitest)"
+echo "  pnpm test                       # frontend unit tests (vitest)"

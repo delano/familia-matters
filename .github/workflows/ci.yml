@@ -50,14 +50,17 @@ jobs:
         node: ['22', '24']
     steps:
       - uses: actions/checkout@v5
+      # Must precede setup-node so `cache: pnpm` finds pnpm on PATH. Version is
+      # auto-detected from package.json "packageManager" — do not pin here too.
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node }}
-          cache: npm
-      - run: npm ci
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - name: Unit tests (vitest)
-        run: npm test
+        run: pnpm test
       - name: Typecheck + production build (emits the /login SPA)
-        run: npm run build
+        run: pnpm build
       - name: Prototype client adapter tests
         run: node resources/01-designs/prototype/backend-client.test.mjs

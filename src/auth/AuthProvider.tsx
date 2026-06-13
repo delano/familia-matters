@@ -66,6 +66,17 @@ export interface AuthContextValue {
    * null. On any other failure returns null without changing auth state.
    */
   call<T>(fn: (api: AdminApi) => Promise<ApiOutcome<T>>): Promise<T | null>
+  /**
+   * Like call(), but outcome-preserving: resolves to the full ApiOutcome so the
+   * caller can render the SPECIFIC refusal (read_only, scan_unavailable,
+   * command_blocked, record_exists, backend-unreachable) instead of a null it
+   * cannot explain. The one global side effect is kept: 401 still dispatches
+   * session/expired so the reauth overlay opens over the mounted app. 403 is
+   * deliberately NOT turned into the global PermissionNotice here — callers of
+   * this variant own their error rendering (an unmissable inline state), and
+   * double-reporting would let a dismissible banner upstage it.
+   */
+  callOutcome<T>(fn: (api: AdminApi) => Promise<ApiOutcome<T>>): Promise<ApiOutcome<T>>
   dismissNotice(): void
 }
 
@@ -80,7 +91,7 @@ export function AuthProvider(props: AuthProviderProps): React.JSX.Element {
   const { children, api = adminApi } = props
   const [state, dispatch] = useReducer(authReducer, initialAuthState)
 
-  // Live mirror of state for callbacks that read it across an await. A closed-over
+  // Live view of state for callbacks that read it across an await. A closed-over
   // `state` would be frozen at the value when the callback was created.
   const stateRef = useRef(state)
   stateRef.current = state
@@ -184,6 +195,17 @@ export function AuthProvider(props: AuthProviderProps): React.JSX.Element {
     [api],
   )
 
+  const callOutcome = useCallback(
+    async <T,>(fn: (api: AdminApi) => Promise<ApiOutcome<T>>): Promise<ApiOutcome<T>> => {
+      const outcome = await fn(api)
+      if (!outcome.ok && outcome.reason === 'unauthenticated') {
+        dispatch({ type: 'session/expired' })
+      }
+      return outcome
+    },
+    [api],
+  )
+
   const dismissNotice = useCallback((): void => {
     dispatch({ type: 'notice/dismiss' })
   }, [])
@@ -193,6 +215,7 @@ export function AuthProvider(props: AuthProviderProps): React.JSX.Element {
     login,
     logout,
     call,
+    callOutcome,
     dismissNotice,
   }
 

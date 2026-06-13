@@ -15,6 +15,7 @@
 
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import App from '../App'
@@ -26,7 +27,7 @@ import type {
   LogoutResult,
   SessionResult,
 } from '../types'
-import { AuthProvider } from './AuthProvider'
+import { AuthProvider, useAuth } from './AuthProvider'
 
 afterEach(cleanup)
 
@@ -343,6 +344,100 @@ describe('lockout recovery (criterion 4: locked until the window elapses)', () =
     expect(within(reauth).getByTestId('login-submit')).toBeEnabled()
     expect(screen.getByTestId('app-content')).toBeInTheDocument()
     expect(screen.getByTestId('action-count').textContent).toContain('1')
+  })
+})
+
+describe('callOutcome (outcome-preserving variant)', () => {
+  // A probe that runs a protected call through callOutcome and renders what
+  // came back, standing in for a screen that owns its own error rendering.
+  function OutcomeProbe(): React.JSX.Element {
+    const { callOutcome } = useAuth()
+    const [seen, setSeen] = useState('none')
+    return (
+      <button
+        type="button"
+        data-testid="outcome-probe"
+        onClick={() => {
+          void callOutcome((api) => api.request('/anything')).then((o) =>
+            setSeen(o.ok ? 'ok' : o.reason),
+          )
+        }}
+      >
+        {seen}
+      </button>
+    )
+  }
+
+  function renderWithProbe(api: AdminApi) {
+    return render(
+      <AuthProvider api={api}>
+        <App />
+        <OutcomeProbe />
+      </AuthProvider>,
+    )
+  }
+
+  it('returns the full outcome on 403 and does NOT raise the global notice', async () => {
+    const { api } = mockApi({
+      getSession: { ok: true, claims: CLAIMS },
+      request: {
+        ok: false,
+        reason: 'forbidden',
+        message: 'read_only',
+        body: { error: 'read_only' },
+      },
+    })
+    renderWithProbe(api)
+
+    const user = userEvent.setup()
+    await screen.findByTestId('app-content')
+    await user.click(screen.getByTestId('outcome-probe'))
+
+    // The caller received the refusal verbatim...
+    await waitFor(() =>
+      expect(screen.getByTestId('outcome-probe')).toHaveTextContent('forbidden'),
+    )
+    // ...and the global banner stayed out of the way: callers of callOutcome
+    // own their (unmissable, inline) error rendering.
+    expect(screen.queryByTestId('permission-notice')).not.toBeInTheDocument()
+    expect(screen.getByTestId('app-content')).toBeInTheDocument()
+  })
+
+  it('still opens the reauth overlay on 401 (the one global side effect)', async () => {
+    const { api } = mockApi({
+      getSession: { ok: true, claims: CLAIMS },
+      request: { ok: false, reason: 'unauthenticated' },
+    })
+    renderWithProbe(api)
+
+    const user = userEvent.setup()
+    await screen.findByTestId('app-content')
+    await user.click(screen.getByTestId('outcome-probe'))
+
+    expect(await screen.findByTestId('reauth-overlay')).toBeInTheDocument()
+    // App stays mounted underneath — never a top-window redirect.
+    expect(screen.getByTestId('app-content')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.getByTestId('outcome-probe')).toHaveTextContent('unauthenticated'),
+    )
+  })
+
+  it('passes generic errors through unchanged (no auth state change)', async () => {
+    const { api } = mockApi({
+      getSession: { ok: true, claims: CLAIMS },
+      request: { ok: false, reason: 'error', status: 400, body: { error: 'scan_unavailable' } },
+    })
+    renderWithProbe(api)
+
+    const user = userEvent.setup()
+    await screen.findByTestId('app-content')
+    await user.click(screen.getByTestId('outcome-probe'))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('outcome-probe')).toHaveTextContent('error'),
+    )
+    expect(screen.queryByTestId('reauth-overlay')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('login-form')).not.toBeInTheDocument()
   })
 })
 

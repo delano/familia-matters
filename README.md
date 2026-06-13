@@ -79,7 +79,7 @@ Development is two processes plus Valkey/Redis on `127.0.0.1:6379`:
 FAMILIA_ADMIN_PASSPHRASE='correct horse battery staple' bundle exec rackup
 
 # terminal 2 — the Vite dev server (proxies /admin/api to :9292)
-npm run dev
+pnpm dev
 ```
 
 Or run both under one process manager: copy `Procfile.example` to `Procfile`

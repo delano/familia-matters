@@ -4,9 +4,7 @@
 
 require 'otto'
 require 'rack'
-require 'rack/static'
 require 'rack/files'
-require 'rack/mime'
 require 'rack/request'
 require 'rack/utils'
 
@@ -22,10 +20,11 @@ module Familia
     # test harness wired Otto by hand and never exercised the middleware; routing
     # the suite through #api_app closes that gap.
     #
-    # Browser entry flow: the built login SPA (Vite dist/) is served under /login,
-    # and the prototype design assets at the web root are gated behind a valid
-    # session cookie — an unauthenticated browser is redirected to
-    # /login?return_to=<original path>, and after login the SPA hands back to it.
+    # Browser entry flow: the built Vite SPA (dist/) is the entire frontend. It is
+    # served under /login (ungated, so the login page can never redirect to itself)
+    # AND at the web root and every other browser path behind the session cookie —
+    # an unauthenticated browser is redirected to /login?return_to=<original path>,
+    # and after login the SPA navigates back to it (same app, no external handoff).
     # The API surface is NOT gated here (Otto's route auth owns it), so Bearer
     # clients see 401/403 statuses, never a redirect.
     #
@@ -40,10 +39,6 @@ module Familia
 
       def routes_path(app_root)
         File.join(app_root, 'resources', '00-assets', 'routes.txt')
-      end
-
-      def designs_dir(app_root)
-        File.join(app_root, 'resources', '01-designs')
       end
 
       def dist_dir(app_root)
@@ -86,31 +81,28 @@ module Familia
         )
       end
 
-      # The full runnable app: state-changing CSRF guard in front of a path
-      # dispatch that routes /admin/api and /_mcp to Otto, /login to the built
-      # login SPA, and everything else to the session-gated design assets.
+      # The full runnable app: a path dispatch that routes /admin/api and /_mcp to
+      # Otto and serves the built Vite SPA everywhere else — at /login (ungated)
+      # and, behind the session cookie, at the web root and all other browser paths.
       def build(app_root)
-        dispatch(
-          api: api_app(otto(app_root)),
-          login: login_app(dist_dir(app_root)),
-          static: static_app(designs_dir(app_root)),
-        )
+        spa = login_app(dist_dir(app_root))
+        dispatch(api: api_app(otto(app_root)), spa: spa)
       end
 
       # Path-prefix dispatch WITHOUT rewriting PATH_INFO (Otto's routes are defined
       # against the full '/admin/api/...' and '/_mcp' paths). Order matters: the
       # API and /login are reachable without a session (Otto's route auth gates the
-      # API; /login must never redirect to itself); only the static designs sit
-      # behind the cookie gate.
-      def dispatch(api:, login:, static:)
+      # API; /login must never redirect to itself); every other browser path serves
+      # the SPA only behind the cookie gate.
+      def dispatch(api:, spa:)
         lambda do |env|
           path = env['PATH_INFO'].to_s
           if prefixed?(path, API_PREFIXES)
             api.call(env)
           elsif prefixed?(path, [LOGIN_PREFIX])
-            login.call(env)
+            spa.call(env)
           elsif session_authenticated?(env)
-            static.call(env)
+            spa.call(env)
           else
             redirect_to_login(env)
           end
@@ -140,17 +132,20 @@ module Familia
         [302, { 'location' => location, 'content-length' => '0' }, []]
       end
 
-      # The built login SPA (vite build -> dist/, base '/login/'): hashed assets
-      # under /login/assets, and the SPA's index.html for every other /login path.
-      # A missing build is an operator hint, not a crash — the API and (for an
-      # already-cookied browser) the designs still work without it.
+      # The built Vite SPA (vite build -> dist/, base '/login/'): hashed assets
+      # under /login/assets, and the SPA's index.html for every other path. This
+      # serves both /login and the cookie-gated web root (dispatch routes both
+      # here), so a path that is neither an asset nor /login-prefixed (e.g. '/')
+      # still resolves to the SPA shell; its absolute '/login/assets/*' refs load
+      # back through this same app. A missing build is an operator hint, not a
+      # crash — the API still works without it.
       def login_app(dist_dir)
         index_path = File.join(dist_dir, 'index.html')
         assets = Rack::Files.new(dist_dir)
 
         lambda do |env|
           unless File.file?(index_path)
-            body = "Login UI not built. Run: npm install && npm run build\n"
+            body = "Login UI not built. Run: pnpm install && pnpm build\n"
             return [503, { 'content-type' => 'text/plain', 'content-length' => body.bytesize.to_s }, [body]]
           end
 
@@ -169,19 +164,6 @@ module Familia
             }, [html]]
           end
         end
-      end
-
-      def static_app(designs_dir)
-        # Babel fetches *.jsx over HTTP; without a JS content-type the browser
-        # refuses to execute them. Register before Rack::Static is built.
-        Rack::Mime::MIME_TYPES['.jsx'] = 'application/javascript'
-        Rack::Mime::MIME_TYPES['.mjs'] = 'application/javascript'
-        Rack::Mime::MIME_TYPES['.js']  = 'application/javascript'
-
-        Rack::Builder.new do
-          use Rack::Static, urls: [''], root: designs_dir, index: 'Familia Admin.html', cascade: true
-          run ->(_env) { [404, { 'content-type' => 'text/plain' }, ['Not found']] }
-        end.to_app
       end
 
     end

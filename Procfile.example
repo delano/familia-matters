@@ -32,9 +32,11 @@
 # Note: in dev you land on the session shell after login, not the prototype.
 # The post-login handoff to the prototype only fires when the URL carries
 # ?return_to=, which the Ruby gate appends in the served flow. To exercise the
-# full gateway flow, skip Vite: `npm run build`, then open
-# http://127.0.0.1:9292/ against the Ruby server alone.
+# full gateway flow, skip Vite: `pnpm build && pnpm build:prototypes`, then
+# open http://127.0.0.1:9292/ against the Ruby server alone. (build emits the
+# /login SPA; build:prototypes emits the post-login design pages the backend
+# serves at the web root — without it those pages 404 on /dist/*.js.)
 
 # valkey: valkey-server --port 6379
 backend: bundle exec rackup
-web: npm run dev
+web: pnpm dev
