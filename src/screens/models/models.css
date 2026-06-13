@@ -45,7 +45,9 @@
   font-size: var(--admin-font-size-sm);
 }
 
-.data-table .cell-num {
+/* Scoped to the Models screen so it can't bleed onto other screens' shared
+ * .data-table usage (this stylesheet is bundled globally). */
+.models-screen .cell-num {
   text-align: right;
 }
 

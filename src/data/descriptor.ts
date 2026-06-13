@@ -19,6 +19,8 @@ export interface FieldDescriptor {
   client_visible?: boolean
   /** '[CONCEALED]' (encrypted) / '[REDACTED]' (transient). */
   display?: string
+  /** Per-field JSON Schema fragment, when the field declares one (server .compact). */
+  json_schema?: unknown
 }
 
 export interface DatatypeDescriptor {

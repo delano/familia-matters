@@ -9,6 +9,7 @@
 
 import type {
   DatatypeDescriptor,
+  FieldDescriptor,
   IndexDescriptor,
   ModelDescriptor,
 } from '../../data/descriptor'
@@ -69,13 +70,13 @@ export function schemaSummary(schema: unknown): string | null {
 }
 
 /**
- * Read a field's per-field json_schema. The descriptor's FieldDescriptor type
- * does not declare this optional key (the server adds it via .compact when a
- * field carries a schema), so we read it off the record without redefining the
- * shared type — narrowing keeps it type-safe.
+ * Read a field's per-field json_schema fragment, when it declares one. The
+ * descriptor's FieldDescriptor carries it as an optional `unknown` (the server
+ * adds it via .compact only when a field has a schema); schemaSummary() narrows
+ * it for display.
  */
-export function fieldSchema(field: object): unknown {
-  return (field as { json_schema?: unknown }).json_schema
+export function fieldSchema(field: FieldDescriptor): unknown {
+  return field.json_schema
 }
 
 export interface PartitionedDatatypes {

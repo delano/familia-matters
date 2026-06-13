@@ -19,9 +19,9 @@ import type { AppDescriptor, FieldDescriptor } from '../../data/descriptor'
 import type { ApiOutcome, Claims, LoginResult, SessionResult } from '../../types'
 import { ModelsScreen } from './ModelsScreen'
 
-/** Attach a per-field json_schema (a key the FieldDescriptor type omits). */
+/** Attach a per-field json_schema (an optional key on FieldDescriptor). */
 function withSchema(field: FieldDescriptor, json_schema: unknown): FieldDescriptor {
-  return { ...field, json_schema } as FieldDescriptor
+  return { ...field, json_schema }
 }
 
 afterEach(() => {

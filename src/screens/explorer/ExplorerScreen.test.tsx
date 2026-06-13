@@ -135,6 +135,39 @@ describe('key scan (SCAN paging, no seed)', () => {
     expect(screen.queryByTestId('explorer-load-more')).not.toBeInTheDocument()
   })
 
+  it('a second scan REPLACES the first — no cross-scan key contamination', async () => {
+    const user = userEvent.setup()
+    // Single-page scans keyed by the MATCH pattern: each returns its own key and
+    // cursor "0" (complete). Re-scanning must clear the prior list, not append.
+    const byPattern: Handler = (path) => {
+      if (!path.startsWith('/raw/keys?')) return undefined
+      const pattern = new URLSearchParams(path.split('?')[1]).get('pattern')
+      const key =
+        pattern === 'session:*' ? 'session:sess_9:object' : 'customer:cust_1:object'
+      return {
+        ok: true,
+        data: { keys: [{ key, type: 'hash', ttl: -1 }], cursor: '0', scanned: 10, matched: 1 },
+      }
+    }
+    renderExplorer(byPattern)
+    const input = screen.getByTestId('explorer-pattern')
+
+    // First scan: customer:*
+    await user.clear(input)
+    await user.type(input, 'customer:*')
+    await user.click(screen.getByTestId('explorer-scan'))
+    expect(await screen.findByTestId('explorer-key-customer:cust_1:object')).toBeInTheDocument()
+
+    // Second scan: session:* — the customer key must be GONE, not appended, and
+    // the matched count reflects the second scan alone (1), never 1+1.
+    await user.clear(input)
+    await user.type(input, 'session:*')
+    await user.click(screen.getByTestId('explorer-scan'))
+    expect(await screen.findByTestId('explorer-key-session:sess_9:object')).toBeInTheDocument()
+    expect(screen.queryByTestId('explorer-key-customer:cust_1:object')).not.toBeInTheDocument()
+    expect(screen.getByTestId('explorer-scan-count')).toHaveTextContent('matched 1')
+  })
+
   it('renders an explicit "0 keys matched" on an empty completed scan', async () => {
     const user = userEvent.setup()
     renderExplorer((path) => {

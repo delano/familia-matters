@@ -86,7 +86,7 @@ export function countMismatch(report: HealthReport): number | null {
 /** Severity tone for a count: zero is neutral, otherwise the supplied tone. */
 export type Tone = 'healthy' | 'caution' | 'broken' | 'preview' | 'neutral'
 
-/** The eight summary-strip rows, in display order, with their tones + labels. */
+/** The nine summary-strip rows, in display order, with their tones + labels. */
 export interface SummaryCell {
   key: string
   label: string
