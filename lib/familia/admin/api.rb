@@ -89,21 +89,29 @@ module Admin
       # instances is the per-class sorted set timeline. Cursor iteration avoids
       # loading the whole keyspace. count is O(1) but may include phantoms; use
       # the integrity endpoint for an authoritative reconciliation.
-      ids = Array(safe { klass.instances.lazy.drop(offset).first(limit) })
+      #
+      # Probe ONE id past the page so has_more is EXACT: a full page of `limit`
+      # ids does not by itself mean more exist (the last page can be exactly
+      # `limit`), and offering "Next" there walks into a guaranteed-empty page.
+      # The (limit+1)th id is the precise "more remain" signal; only the first
+      # `limit` ids are ever materialized, so the probe costs one extra ZRANGE
+      # element, never an extra record load.
+      probe   = Array(safe { klass.instances.lazy.drop(offset).first(limit + 1) })
+      has_more = probe.length > limit
+      ids     = probe.first(limit)
       records = Array(safe { klass.load_multi(ids) }).compact
       json({
         model: klass.config_name,
         offset: offset,
         limit: limit,
         count_fast: safe { klass.count },
-        # Pagination MUST key off the timeline cursor, never records.length:
-        # load_multi drops phantoms (timeline ids with no live object), so a full
-        # page of `limit` ids can materialize fewer live records. A "next" button
-        # driven off records.length would disable on the FIRST phantom-bearing page
-        # and silently hide the rest of a real (phantom-prone) dataset — exactly the
-        # failure the integrity console exists to surface. has_more reflects whether
-        # the timeline yielded a full page of ids BEFORE compaction.
-        has_more: ids.length == limit,
+        # Pagination keys off the TIMELINE CURSOR (has_more), never records.length:
+        # load_multi drops phantoms (timeline ids with no live object), so a page
+        # can materialize fewer live records than ids. A "next" button driven off
+        # records.length would disable on the FIRST phantom-bearing page and
+        # silently hide the rest of a real (phantom-prone) dataset — exactly the
+        # failure the integrity console exists to surface.
+        has_more: has_more,
         records: records.map { |r| serialize(r) },
       })
     end
@@ -730,8 +738,9 @@ module Admin
     # probing Familia::Migration::Runner/Registry through safe{} would raise
     # NameError on every status/drift poll and log it (Util#safe logs by policy) —
     # turning the expected "no migration runner" state into per-request stderr
-    # noise. Gate on the namespace (mirrors descriptor.rb's defined?(SchemaRegistry)
-    # guard) so the honest unavailable state is reached without raising.
+    # noise. Gate on the namespace (mirrors descriptor.rb's
+    # defined?(Familia::SchemaRegistry) guard) so the honest unavailable state is
+    # reached without raising.
     def migrations_available?
       defined?(Familia::Migration) ? true : false
     end

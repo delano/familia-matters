@@ -15,23 +15,32 @@ status, body = adm_get('/admin/api/models/customer/records')
 #=> [200, ["count_fast", "has_more", "limit", "model", "offset", "records"], ["cust_alice", "cust_bob", "cust_pending"]]
 
 ## has_more keys off the TIMELINE CURSOR, not records.length: a phantom (a
-## timeline id with no live object) is dropped by load_multi, so a full page of
-## ids materializes fewer records — but pagination must still advance. Inject a
-## phantom, then read a page sized to the full timeline: has_more is true (4 ids
-## == limit) even though only the 3 real records come back, and the phantom never
-## appears in records[]. This is the regression guard for the silent-truncation bug.
+## timeline id with no live object) is dropped by load_multi, so a page can
+## materialize FEWER live records than ids — pagination must still advance off the
+## cursor. With 4 timeline ids (3 real + a phantom) and limit 3, a 4th id exists
+## beyond the page, so has_more is true; the short, phantom-thinned records[] never
+## includes the phantom. Regression guard for the silent-truncation bug.
 reset_and_seed!
 Customer.instances.add('cust_phantom', Familia.now.to_i)
-status, body = adm_get('/admin/api/models/customer/records?limit=4')
-[status, body['has_more'], body['records'].length,
- body['records'].map { |r| r['custid'] }.include?('cust_phantom')]
-#=> [200, true, 3, false]
+status, body = adm_get('/admin/api/models/customer/records?limit=3')
+[status, body['has_more'],
+ body['records'].map { |r| r['custid'] }.include?('cust_phantom'),
+ body['records'].length <= 3]
+#=> [200, true, false, true]
 
-## the final page (no full page of ids remains) reports has_more false
+## has_more is EXACT, never an empty trailing page: a page that exactly fills
+## `limit` with the LAST ids reports has_more false (no (limit+1)th id exists), so
+## "Next" is not offered into a guaranteed-empty page. 3 real records, limit 3.
 reset_and_seed!
-status, body = adm_get('/admin/api/models/customer/records?limit=50')
+status, body = adm_get('/admin/api/models/customer/records?limit=3')
 [status, body['has_more'], body['records'].length]
 #=> [200, false, 3]
+
+## ...and true when a further id genuinely remains beyond the page (3 ids, limit 2)
+reset_and_seed!
+status, body = adm_get('/admin/api/models/customer/records?limit=2')
+[status, body['has_more'], body['records'].length]
+#=> [200, true, 2]
 
 ## list serialization masks encrypted fields and omits the transient password
 reset_and_seed!
