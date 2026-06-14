@@ -308,6 +308,42 @@ describe('IntegrityScreen — dry-run + streamed apply', () => {
     expect(partial).toHaveTextContent('worker_crashed')
     expect(partial).toHaveTextContent('Instances')
   })
+
+  it('a stream connection error renders connlost AND probes the session (so a mid-repair 401 opens reauth)', async () => {
+    const user = userEvent.setup()
+    const { openStream, control } = makeFakeStream()
+    const api = renderIntegrity(
+      (path, init) => {
+        if (path === '/_meta') return { ok: true, data: META }
+        if (path === '/integrity/customer' && (init?.method ?? 'GET') === 'GET') {
+          return { ok: true, data: ISSUES_REPORT }
+        }
+        if (path.includes('/repair?dry_run=true')) {
+          return { ok: true, data: { dry_run: true, report: ISSUES_REPORT } }
+        }
+        return undefined
+      },
+      { openStream },
+    )
+
+    await screen.findByTestId('integrity-banner-issues')
+    await user.click(screen.getByTestId('integrity-preview-repair'))
+    await user.click(await screen.findByTestId('integrity-apply'))
+    await screen.findByTestId('integrity-repairing')
+
+    const { handlers } = control.current!
+    act(() => {
+      handlers.onConnectionError?.()
+    })
+
+    // The connlost panel renders (the stream never reconnects)…
+    expect(await screen.findByTestId('integrity-connlost')).toBeInTheDocument()
+    // …AND the session is probed via /auth/session. EventSource hides the HTTP
+    // status, so this probe is the only way a session that expired mid-repair
+    // routes to reauth: the AuthProvider turns its 401 into session/expired
+    // (covered in AuthProvider.test.tsx), matching every REST path's 401 handling.
+    await waitFor(() => expect(api.request).toHaveBeenCalledWith('/auth/session'))
+  })
 })
 
 describe('IntegrityScreen — permission gating', () => {

@@ -75,10 +75,11 @@ RUBY
 @missing_exit, = boot_run("Familia::Admin::Boot.setup!(ENV['APP_DIR']); puts 'BOOTED'",
                           'FAMILIA_ADMIN_MODELS' => File.join(FIXTURES, 'does_not_exist_*.rb'))
 
-## FAMILIA_ADMIN_MODELS: a standalone boot reflects the operator's models
-## (alongside the admin's own audit_log model, as the demo boot does too)
+## FAMILIA_ADMIN_MODELS: a standalone boot reflects the operator's models. The
+## admin's OWN internal models (Familia::Admin::AuditLog) are excluded from the
+## surface — they are not administrable and the audit trail has its own endpoint.
 @standalone['models']
-#==> _.include?('widget')
+#==> _.include?('widget') && !_.include?('audit_log')
 
 ## ...and NOT the bundled demo fixtures (Customer/Session/ApiKey)
 @standalone['models'].include?('customer')
@@ -92,9 +93,10 @@ RUBY
 @standalone_exit
 #=> 0
 
-## FAMILIA_ADMIN_APP: setup_host_app! reflects the host app's own models
+## FAMILIA_ADMIN_APP: setup_host_app! reflects the host app's own models (and
+## still excludes the admin's own internal AuditLog member)
 @hostapp['models']
-#==> _.include?('vault') && _.include?('token')
+#==> _.include?('vault') && _.include?('token') && !_.include?('audit_log')
 
 ## the host app's encryption key version survives the admin boot UNTOUCHED
 @hostapp['key_version']

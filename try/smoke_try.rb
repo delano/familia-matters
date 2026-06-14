@@ -17,12 +17,13 @@ require_relative 'test_helper'
 @meta.keys.sort
 #=> ["familia_version", "generated_at", "models"]
 
-## the seeded models all describe (customer/session/api_key present; audit_log
-## is also a registered Horreum member so it appears too -- live truth)
+## the seeded host models all describe (customer/session/api_key present). The
+## admin's OWN internal AuditLog member is excluded from the surface (it has the
+## dedicated GET /admin/api/audit view), so it does NOT appear here -- live truth.
 reset_and_seed!
 _status, meta = adm_get('/admin/api/_meta')
 names = meta['models'].map { |m| m['model'] }
-%w[customer session api_key].all? { |n| names.include?(n) }
+%w[customer session api_key].all? { |n| names.include?(n) } && !names.include?('audit_log')
 #=> true
 
 ## records.list returns the bare list shape with the seeded customers

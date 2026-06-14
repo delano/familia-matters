@@ -1,4 +1,4 @@
-# resources/00-assets/lib/familia/admin/descriptor.rb
+# lib/familia/admin/descriptor.rb
 #
 # frozen_string_literal: true
 
@@ -33,6 +33,18 @@ module Familia
         list set sorted_set hashkey string json_stringkey counter lock
       ].freeze
 
+      # The admin carries its OWN Familia::Horreum models for internal plumbing
+      # (the audit sink, Familia::Admin::AuditLog). Familia auto-registers every
+      # Horreum subclass into Familia.members, so without this filter the admin's
+      # own AuditLog would surface as an administrable "model" in /_meta, the
+      # model list, and the Records screen — degenerate (no instance fields, its
+      # data is the dedicated GET /admin/api/audit view) and pure noise next to a
+      # host app's real models (Customer, Secret, ... when pointed at
+      # OneTimeSecret). Internal models are reflected nowhere and resolve nowhere;
+      # the audit trail has its own endpoint. This is the SINGLE definition of
+      # "administrable" that Admin::API#resolve_model! and #map_key_to_model honor.
+      INTERNAL_NAMESPACE = 'Familia::Admin'
+
       # ----- top level -------------------------------------------------------
 
       # @return [Hash] the full application descriptor
@@ -44,9 +56,25 @@ module Familia
         }
       end
 
-      # @return [Array<Class>] every registered, named Horreum subclass
+      # @return [Array<Class>] every registered, named, ADMINISTRABLE Horreum
+      #   subclass (the admin's own internal models are excluded; see
+      #   #administrable? and INTERNAL_NAMESPACE).
       def models
-        Familia.members.reject { |m| m.name.nil? }
+        Familia.members.select { |m| administrable?(m) }
+      end
+
+      # Whether a registered Horreum class is an administrable host-app model
+      # (true) or the admin's own internal plumbing (false). Anonymous classes
+      # (nil name) are never administrable. The single source of truth for the
+      # model surface, honored by Admin::API#resolve_model! and #map_key_to_model
+      # so a model excluded from the list also resolves nowhere.
+      # @param klass [Class]
+      # @return [Boolean]
+      def administrable?(klass)
+        name = klass.name
+        return false if name.nil?
+
+        name != INTERNAL_NAMESPACE && !name.start_with?("#{INTERNAL_NAMESPACE}::")
       end
 
       # @param klass [Class] a Familia::Horreum subclass

@@ -25,6 +25,15 @@ export interface RecordsPage {
   limit?: number
   /** O(1) timeline count; null when reflection failed. May include phantoms. */
   count_fast?: number | null
+  /**
+   * Whether a further timeline id exists beyond this page — the authoritative,
+   * exact "next page exists" signal (the backend probes one id past `limit`, so
+   * it is never an empty trailing page). Pagination MUST key off this, not
+   * records.length: the backend drops phantoms (timeline ids with no live object)
+   * from records[], so a page can return fewer records than ids, and driving
+   * "next" off records.length silently truncates a phantom-prone dataset.
+   */
+  has_more?: boolean
   records?: RecordData[]
 }
 
