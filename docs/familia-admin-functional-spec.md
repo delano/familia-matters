@@ -160,9 +160,12 @@ force buttons with no backing escalation path), not capability.
   auth split (401 reauth overlay vs 403 in-place denial), and the hero flow
   (integrity check → dry-run → streamed repair over SSE). It has not yet built
   the vision's connective and operational tissue — see §6 for the itemized gaps.
-- **Known drift to correct:** the README still describes an MCP/JSON-RPC
-  surface ("`/_mcp` JSON-RPC 2.0", "the same routes are exposed as MCP tools")
-  that T5 removed because it never existed. The Gemfile pins familia `~> 2.10`
+- **Known drift to correct:** the README and AGENTS.md advertised an
+  MCP/JSON-RPC surface ("`/_mcp` JSON-RPC 2.0", "the same routes are exposed as
+  MCP tools") that T5 removed because it never existed; those false "it exists
+  today" claims were struck in this spec's own PR (#42), leaving only the
+  *strategic* MCP question (build a real surface or not) open under R-PLAT-3.
+  The Gemfile pins familia `~> 2.10`
   (locked 2.10.1) while OTS — the driving app — pins `~> 2.11.1`, and the
   gem's project-wide introspection layer (`Familia.stale_indexes`,
   `IndexDescriptor`) only exists in 2.11+, so the admin's stale-index endpoint
