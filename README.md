@@ -46,10 +46,14 @@ contract a human uses.
 
 ### docs/
 
-Design docs and decision records: `docs/early-designs/` (the full UI design study
-and datasheets, the UX brief, and the production-hardening plan/ticket template),
-`docs/features/` (the integrity console spec, the auth-UI spec, and feature
-issues), and `docs/adr/` (architecture decision records).
+**Start with [`docs/familia-admin-functional-spec.md`](docs/familia-admin-functional-spec.md)**
+— the anchor document: the problem restated, the clarified product definition,
+the full requirement inventory (`R-…` IDs new issues should cite), and the
+roadmap. The rest are design docs and decision records: `docs/early-designs/`
+(the full UI design study and datasheets, the UX brief, and the
+production-hardening plan/ticket template), `docs/features/` (the integrity
+console spec, the auth-UI spec, and feature issues), and `docs/adr/`
+(architecture decision records).
 
 ### resources/00-assets/
 
