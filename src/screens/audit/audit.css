@@ -1,0 +1,278 @@
+/*
+ * src/screens/audit/audit.css — co-located styles for the Audit trail screen.
+ * Uses the shared design tokens (--admin-*, --otto-*) from src/styles.css and
+ * reuses .screen-title / .screen-loading / .spinner / .error-state / .cell-mono.
+ * Dark-first, dense operator tool. Only audit-specific layout lives here.
+ */
+
+.audit-console {
+  display: grid;
+  gap: var(--otto-space-md);
+}
+
+.audit-screen code,
+.audit-screen .cell-mono {
+  font-family: var(--admin-mono);
+  font-size: var(--admin-font-size-sm);
+}
+
+/* ---- Toolbar: action filter + fetch window ---- */
+.audit-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--otto-space-md);
+}
+
+.audit-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--otto-space-xs);
+}
+
+.audit-chip {
+  padding: 2px var(--otto-space-sm);
+  background: transparent;
+  color: var(--admin-text-muted);
+  border: var(--admin-border);
+  border-radius: 9999px;
+  font-family: var(--admin-mono);
+  font-size: var(--admin-font-size-sm);
+  cursor: pointer;
+  transition: var(--otto-transition-fast);
+}
+
+.audit-chip:hover {
+  border-color: var(--admin-text-muted);
+  color: var(--admin-text);
+}
+
+/* The selected chip: the one sanctioned accent fill on this screen. */
+.audit-chip--on {
+  background: var(--admin-accent);
+  color: var(--admin-on-accent);
+  border-color: transparent;
+  font-weight: 600;
+}
+
+/* A dotted tone marker so danger/caution actions read at a glance even off. */
+.audit-chip--danger:not(.audit-chip--on) {
+  border-color: color-mix(in srgb, var(--admin-status-broken) 55%, var(--admin-border-color));
+}
+.audit-chip--caution:not(.audit-chip--on) {
+  border-color: color-mix(in srgb, var(--admin-status-caution) 55%, var(--admin-border-color));
+}
+
+.audit-toolbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--otto-space-sm);
+}
+
+.audit-window {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--otto-space-xs);
+}
+
+.audit-window-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+}
+
+.audit-window-select,
+.audit-toolbar-actions button {
+  padding: var(--otto-space-xs) var(--otto-space-sm);
+  background: transparent;
+  color: var(--admin-text);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  font-size: var(--admin-font-size-sm);
+  cursor: pointer;
+  transition: var(--otto-transition-fast);
+}
+
+.audit-toolbar-actions button:hover {
+  border-color: var(--admin-text-muted);
+}
+
+/* ---- Count / window hint ---- */
+.audit-count {
+  margin: 0;
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-text-muted);
+}
+
+.audit-window-hint {
+  color: var(--admin-status-caution);
+}
+
+/* ---- Empty (honest) panel ---- */
+.audit-empty {
+  margin: var(--otto-space-md) 0;
+  padding: var(--otto-space-lg);
+  border: var(--admin-border);
+  border-left: 3px solid var(--admin-status-neutral);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+}
+
+.audit-empty h3 {
+  margin: 0 0 var(--otto-space-sm);
+  font-size: 15px;
+  color: var(--admin-text);
+}
+
+.audit-empty p {
+  margin: 0;
+  max-width: 64ch;
+  color: var(--admin-text-muted);
+}
+
+/* ---- Entry list ---- */
+.audit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--otto-space-xs);
+}
+
+.audit-entry {
+  border: var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+  overflow: hidden;
+}
+
+.audit-entry-head {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-sm);
+  width: 100%;
+  padding: var(--otto-space-sm) var(--otto-space-md);
+  background: transparent;
+  border: none;
+  color: var(--admin-text);
+  text-align: left;
+  cursor: pointer;
+  font-size: var(--admin-font-size-sm);
+  transition: var(--otto-transition-fast);
+}
+
+.audit-entry-head:hover {
+  background: var(--admin-surface-raised);
+}
+
+.audit-caret {
+  color: var(--admin-text-muted);
+  width: 0.9em;
+  flex: none;
+}
+
+.audit-time {
+  color: var(--admin-text-muted);
+  white-space: nowrap;
+}
+
+.audit-badge {
+  padding: 1px var(--otto-space-xs);
+  font-family: var(--admin-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: var(--otto-radius-sm);
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.audit-badge--neutral {
+  color: var(--admin-status-neutral);
+}
+.audit-badge--caution {
+  color: var(--admin-status-caution);
+}
+.audit-badge--danger {
+  color: var(--admin-status-broken);
+}
+
+.audit-actor {
+  color: var(--admin-text-muted);
+  white-space: nowrap;
+}
+
+.audit-target {
+  margin-left: auto;
+  color: var(--admin-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 45%;
+}
+
+/* ---- Expanded detail ---- */
+.audit-entry-detail {
+  padding: var(--otto-space-sm) var(--otto-space-md) var(--otto-space-md);
+  border-top: var(--admin-border);
+  background: var(--admin-bg);
+  display: grid;
+  gap: var(--otto-space-sm);
+}
+
+.audit-note {
+  margin: 0;
+  font-size: var(--admin-font-size-sm);
+  color: var(--admin-text-muted);
+}
+
+.audit-detail-list {
+  margin: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.audit-detail-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--otto-space-md);
+}
+
+.audit-detail-row dt {
+  flex: none;
+  min-width: 12ch;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+}
+
+.audit-detail-row dd {
+  margin: 0;
+  color: var(--admin-text);
+  word-break: break-word;
+}
+
+/* ---- Destroy snapshot sub-block ---- */
+.audit-snapshot {
+  display: grid;
+  gap: var(--otto-space-xs);
+  padding: var(--otto-space-sm) var(--otto-space-md);
+  border: 1px solid
+    color-mix(in srgb, var(--admin-status-broken) 30%, var(--admin-border-color));
+  border-radius: var(--otto-radius-sm);
+  background: rgba(220, 38, 38, 0.06);
+}
+
+.audit-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+}

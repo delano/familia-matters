@@ -18,9 +18,11 @@ scaffolding, no generated code. Dense, keyboard-first, dark-first operator tool.
   router, a `useResource`/`useMutation` data layer over a typed REST client
   (`src/api/client.ts`), an EventSource helper for the repair stream
   (`src/api/sse.ts`), the shared `ErrorState`, the `/_meta` descriptor types
-  (`src/data/descriptor.ts`), and five screens under
-  `src/screens/{records,models,integrity,migrations,explorer}/`. Each screen owns
-  its own subtree; the route table is `src/screens/index.tsx`.
+  (`src/data/descriptor.ts`), and the screens under
+  `src/screens/{records,models,integrity,migrations,audit,explorer}/`. The audit
+  screen (R-AUD-1) is the operator-facing view of the T6 audit sink
+  (`GET /admin/api/audit`). Each screen owns its own subtree; the route table is
+  `src/screens/index.tsx`.
 - **`lib/familia/admin/`** — the runnable backend. `api.rb` (the Otto controller),
   `descriptor.rb` (DB-free reflection → `/_meta`), `rack_app.rb` (the HTTP stack:
   OriginGuard → ReadOnlyGuard → Otto + static SPA), plus `auth.rb`, `sessions.rb`,

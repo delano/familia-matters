@@ -11,6 +11,7 @@ the shapes produced by `lib/familia/admin/descriptor.rb` and `lib/familia/admin/
 | `records.sample.json` | record list, record detail, reveal flow, collection editors, indexed query |
 | `health_check.sample.json` | the integrity console (all issue types present) |
 | `migrations.sample.json` | migration cockpit (status, drift, dry-run plan) |
+| `audit.sample.json` | the audit trail screen (`GET /admin/api/audit`: `{entries, count, limit}`, newest-first; a destroy entry carries a masked `snapshot`) |
 | `stream_repair.sample.jsonl` | repair progress stream (one JSON event per line) |
 
 ## Two honest caveats for accurate designs

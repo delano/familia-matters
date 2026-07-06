@@ -50,12 +50,13 @@ function renderShell(api: AdminApi = mockApi()) {
 }
 
 describe('the route table', () => {
-  it('covers exactly the five T7 screens', () => {
+  it('covers the T7 screens plus the audit trail (R-AUD-1)', () => {
     expect(SCREEN_ROUTES.map((s) => s.path)).toEqual([
       '/records',
       '/models',
       '/integrity',
       '/migrations',
+      '/audit',
       '/explorer',
     ])
   })
