@@ -28,7 +28,7 @@ import { useResource } from '../../data/useResource'
 import { routeHref } from '../../router/hashRouter'
 import type { AuditEntry, AuditResponse } from '../audit/api'
 import { listAudit } from '../audit/api'
-import { auditActionTone, auditTarget, formatAuditTime } from '../audit/format'
+import { auditActionTone, auditDateTime, auditTarget, formatAuditTime } from '../audit/format'
 import type { FleetData, FleetRow, ServerInfo } from './api'
 import { loadFleet, loadServerInfo } from './api'
 import {
@@ -342,7 +342,9 @@ function ActivityList({ entries }: { entries: AuditEntry[] }): React.JSX.Element
             <span className={`home-badge home-badge--${tone}`}>{entry.action ?? 'unknown'}</span>
             {target && <span className="home-activity-target cell-mono">{target}</span>}
             <span className="home-activity-actor">{entry.actor ?? '—'}</span>
-            <time className="home-activity-time">{formatAuditTime(entry.at)}</time>
+            <time className="home-activity-time" dateTime={auditDateTime(entry.at)}>
+              {formatAuditTime(entry.at)}
+            </time>
           </li>
         )
       })}

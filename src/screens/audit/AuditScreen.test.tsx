@@ -18,6 +18,7 @@ import type { AdminApi } from '../../api/client'
 import { AuthProvider } from '../../auth/AuthProvider'
 import type { ApiOutcome, Claims, LoginResult, SessionResult } from '../../types'
 import { AuditScreen } from './AuditScreen'
+import { auditRowKeys } from './format'
 
 afterEach(cleanup)
 
@@ -201,5 +202,39 @@ describe('failure is an explicit error state (no seed, no empty table)', () => {
     const pane = await screen.findByTestId('error-state')
     expect(pane).toHaveAttribute('data-error-kind', 'unreachable')
     expect(screen.queryByTestId('audit-list')).not.toBeInTheDocument()
+  })
+})
+
+describe('each row time carries a machine-readable dateTime', () => {
+  it('renders <time dateTime=…> from the entry epoch', async () => {
+    renderAudit()
+    const first = await screen.findByTestId('audit-entry-0')
+    const time = within(first).getByText(/UTC$/)
+    expect(time.tagName).toBe('TIME')
+    // ENTRIES[0].at === 1751558400 (epoch seconds) -> the ISO instant.
+    expect(time).toHaveAttribute('dateTime', new Date(1751558400 * 1000).toISOString())
+  })
+})
+
+describe('auditRowKeys: stable, unique, content-derived (never the array index)', () => {
+  it('gives distinct keys and survives a top-insert without reusing a key slot', () => {
+    const keys = auditRowKeys(ENTRIES)
+    expect(new Set(keys).size).toBe(ENTRIES.length) // all unique
+
+    // A refresh that prepends a new entry must NOT shift existing keys onto
+    // different entries (the index-key bug): every prior key still maps to its
+    // own entry, so React keeps each row's expansion state with its content.
+    const prepended = [{ at: 1751558700, actor: 'admin', action: 'create', model: 'session', id: 'sess_new' }, ...ENTRIES]
+    const nextKeys = auditRowKeys(prepended)
+    expect(nextKeys.slice(1)).toEqual(keys)
+  })
+
+  it('disambiguates two entries identical in at/action/actor/target with a suffix', () => {
+    const dup = [
+      { at: 1751558400, actor: 'admin', action: 'reveal', model: 'customer', id: 'cust_1', field: 'a' },
+      { at: 1751558400, actor: 'admin', action: 'reveal', model: 'customer', id: 'cust_1', field: 'b' },
+    ]
+    const keys = auditRowKeys(dup)
+    expect(keys[0]).not.toBe(keys[1])
   })
 })

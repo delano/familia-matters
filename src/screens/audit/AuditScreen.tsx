@@ -31,7 +31,9 @@ import './audit.css'
 import { listAudit, type AuditEntry } from './api'
 import {
   auditActionTone,
+  auditDateTime,
   auditDetailPairs,
+  auditRowKeys,
   auditTarget,
   distinctActions,
   formatAuditTime,
@@ -97,10 +99,14 @@ function AuditConsole(props: AuditConsoleProps): React.JSX.Element {
   // "all" rather than showing an empty list for a stale selection.
   const activeAction = action !== null && actions.includes(action) ? action : null
 
-  // Tag with the original index BEFORE filtering: it is the stable React key and
-  // testid, so a row keeps its expansion state as the filter narrows/widens.
+  // Content-derived React keys, computed over the FULL window before filtering,
+  // so a row keeps its identity (and expansion state) as the filter narrows or
+  // widens AND as a refresh shifts the list — never the array index, which would
+  // reassociate one row's expansion with a different entry. The original index
+  // is retained only for positional testids, not for React identity.
+  const keys = auditRowKeys(entries)
   const rows = entries
-    .map((entry, index) => ({ entry, index }))
+    .map((entry, index) => ({ entry, index, key: keys[index] }))
     .filter(({ entry }) => activeAction === null || entry.action === activeAction)
 
   return (
@@ -131,8 +137,8 @@ function AuditConsole(props: AuditConsoleProps): React.JSX.Element {
         <EmptyPanel />
       ) : (
         <ol className="audit-list" data-testid="audit-list">
-          {rows.map(({ entry, index }) => (
-            <AuditRow key={index} entry={entry} index={index} />
+          {rows.map(({ entry, index, key }) => (
+            <AuditRow key={key} entry={entry} index={index} />
           ))}
         </ol>
       )}
@@ -257,7 +263,9 @@ function AuditRow(props: AuditRowProps): React.JSX.Element {
         <span className="audit-caret" aria-hidden="true">
           {open ? '▾' : '▸'}
         </span>
-        <time className="audit-time cell-mono">{formatAuditTime(entry.at)}</time>
+        <time className="audit-time cell-mono" dateTime={auditDateTime(entry.at)}>
+          {formatAuditTime(entry.at)}
+        </time>
         <span className={`audit-badge audit-badge--${tone}`}>{action}</span>
         <span className="audit-actor" data-testid={`audit-actor-${index}`}>
           {entry.actor ?? '—'}

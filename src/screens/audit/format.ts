@@ -39,6 +39,48 @@ export function formatAuditTime(at: number | undefined): string {
 }
 
 /**
+ * The machine-readable ISO-8601 value for a `<time dateTime>` attribute, or
+ * undefined when `at` is absent/garbage (so the attribute is simply omitted
+ * rather than rendered empty).
+ */
+export function auditDateTime(at: number | undefined): string | undefined {
+  if (typeof at !== 'number' || !Number.isFinite(at)) return undefined
+  return new Date(at * 1000).toISOString()
+}
+
+/**
+ * A content-derived identity for an entry, for use as a stable React key.
+ * Never key a row by its array index: a refresh that shifts the list (a new
+ * entry at the top, a narrower window) would reassociate one row's expansion
+ * state with a different entry. Audit entries carry no guaranteed unique id, so
+ * callers dedupe identical keys with an occurrence suffix (see auditRowKeys).
+ */
+export function auditEntryKey(entry: AuditEntry): string {
+  return [
+    entry.at ?? '',
+    entry.action ?? '',
+    entry.actor ?? '',
+    auditTarget(entry) ?? '',
+  ].join('|')
+}
+
+/**
+ * Stable, unique React keys for a list of entries, computed over the FULL list
+ * (before any filtering) so a key stays put as the action filter narrows or
+ * widens. Identical content keys get a `#n` occurrence suffix, so two entries
+ * recorded in the same second with the same action/target never collide.
+ */
+export function auditRowKeys(entries: AuditEntry[]): string[] {
+  const seen = new Map<string, number>()
+  return entries.map((entry) => {
+    const base = auditEntryKey(entry)
+    const n = seen.get(base) ?? 0
+    seen.set(base, n + 1)
+    return n === 0 ? base : `${base}#${n}`
+  })
+}
+
+/**
  * A concise target label for the row header: `model:id`, or the field / command
  * / id for actions that carry no model+id. Returns null when the action has no
  * meaningful target (e.g. a whole-run `run_migrations`), so the header renders
