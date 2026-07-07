@@ -77,10 +77,12 @@ describe('navigation inside the authenticated shell', () => {
     }
   })
 
-  it('defaults to the overview route', async () => {
+  it('defaults to the overview route: the home health dashboard is the landing surface', async () => {
     renderShell()
     await screen.findByTestId('app-content')
 
+    // The R-HOME dashboard leads the '/' route; the reauth-demo affordance stays.
+    expect(screen.getByTestId('screen-home')).toBeInTheDocument()
     expect(screen.getByTestId('action-count')).toBeInTheDocument()
     expect(screen.getByTestId('nav-overview')).toHaveAttribute('aria-current', 'page')
   })

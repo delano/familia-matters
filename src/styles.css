@@ -431,6 +431,45 @@ body {
   color: var(--admin-text-muted);
 }
 
+/* The session-diagnostics block below the home dashboard on '/'. Secondary to
+ * the dashboard: muted, boxed, and clearly a diagnostic affordance. */
+.overview-diagnostics {
+  margin-top: var(--otto-space-lg);
+  padding: var(--otto-space-md);
+  border: var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+}
+
+.overview-diagnostics h3 {
+  margin: 0 0 var(--otto-space-xs);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+}
+
+.overview-diag-claims {
+  margin: 0 0 var(--otto-space-sm);
+  color: var(--admin-text-muted);
+  font-size: var(--admin-font-size-sm);
+}
+
+.overview-diagnostics button {
+  padding: var(--otto-space-xs) var(--otto-space-md);
+  background: transparent;
+  color: var(--admin-text);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  cursor: pointer;
+  transition: var(--otto-transition-fast);
+}
+
+.overview-diagnostics button:hover {
+  border-color: var(--admin-text-muted);
+}
+
 /* =========================================================================
  * Records screen (descriptor-driven list / detail / forms)
  * ====================================================================== */

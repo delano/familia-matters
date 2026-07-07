@@ -5,7 +5,7 @@
 // reload() recovery, deps-driven refetch, and the 401 path opening the reauth
 // overlay while the hook reports an explicit error — never stale or seed data.
 
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -155,7 +155,11 @@ describe('401 mid-session (the AC1 requirement)', () => {
       <AuthProvider api={api}>
         <App />
         <WhenAuthenticated>
-          <Probe path="/thing" />
+          {/* Host the probe so its error-state is distinguishable from the home
+              dashboard's own panels, which legitimately error under the 401. */}
+          <div data-testid="probe-host">
+            <Probe path="/thing" />
+          </div>
         </WhenAuthenticated>
       </AuthProvider>,
     )
@@ -164,8 +168,8 @@ describe('401 mid-session (the AC1 requirement)', () => {
     expect(await screen.findByTestId('reauth-overlay')).toBeInTheDocument()
     expect(screen.getByTestId('app-content')).toBeInTheDocument()
 
-    // ...and the resource is an explicit error state, not silent or fabricated.
-    const pane = screen.getByTestId('error-state')
+    // ...and the probe's resource is an explicit error state, not silent or fabricated.
+    const pane = within(screen.getByTestId('probe-host')).getByTestId('error-state')
     expect(pane).toHaveAttribute('data-error-kind', 'unauthenticated')
   })
 })

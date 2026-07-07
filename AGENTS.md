@@ -19,10 +19,16 @@ scaffolding, no generated code. Dense, keyboard-first, dark-first operator tool.
   (`src/api/client.ts`), an EventSource helper for the repair stream
   (`src/api/sse.ts`), the shared `ErrorState`, the `/_meta` descriptor types
   (`src/data/descriptor.ts`), and the screens under
-  `src/screens/{records,models,integrity,migrations,audit,explorer}/`. The audit
-  screen (R-AUD-1) is the operator-facing view of the T6 audit sink
-  (`GET /admin/api/audit`). Each screen owns its own subtree; the route table is
-  `src/screens/index.tsx`.
+  `src/screens/{home,records,models,integrity,migrations,audit,explorer}/`. The
+  audit screen (R-AUD-1) is the operator-facing view of the T6 audit sink
+  (`GET /admin/api/audit`). The home screen (R-HOME-1..3) is the health-dashboard
+  landing surface, rendered by the shell at `/`: it composes existing read-only
+  endpoints (`/_meta`, per-model `count_fast`, `/integrity/_stale_indexes`,
+  `/raw/info`, `/audit`), runs no scans on load, and renders the integrity column
+  as an honest "not checked" link (no cached per-model result exists yet — that
+  needs R-INT-6's sweep). Each screen owns its own subtree; the six navigable
+  screens are the route table in `src/screens/index.tsx`, and `/` is the shell's
+  overview route in `src/App.tsx`.
 - **`lib/familia/admin/`** — the runnable backend. `api.rb` (the Otto controller),
   `descriptor.rb` (DB-free reflection → `/_meta`), `rack_app.rb` (the HTTP stack:
   OriginGuard → ReadOnlyGuard → Otto + static SPA), plus `auth.rb`, `sessions.rb`,

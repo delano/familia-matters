@@ -12,6 +12,7 @@ the shapes produced by `lib/familia/admin/descriptor.rb` and `lib/familia/admin/
 | `health_check.sample.json` | the integrity console (all issue types present) |
 | `migrations.sample.json` | migration cockpit (status, drift, dry-run plan) |
 | `audit.sample.json` | the audit trail screen (`GET /admin/api/audit`: `{entries, count, limit}`, newest-first; a destroy entry carries a masked `snapshot`) |
+| `server_info.sample.json` | the home dashboard's server-vitals strip (`GET /admin/api/raw/info`: the `{server, memory, clients, stats, keyspace}` subset; every value is a raw Redis INFO string) |
 | `stream_repair.sample.jsonl` | repair progress stream (one JSON event per line) |
 
 ## Two honest caveats for accurate designs
