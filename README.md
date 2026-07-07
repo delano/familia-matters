@@ -325,11 +325,16 @@ never in the unit file.
 
 ## Status
 
-The Vite + React + TypeScript SPA under `src/` is the entire frontend, and all
-five screens are live: Records, Models, the Integrity console, Migrations, and
-the raw Explorer. Each builds itself from the backend contract — the `/_meta`
-descriptor and the integrity/migration/raw endpoints — and renders explicit error
-and honest "unavailable" states on failure, never seed data. The Ruby backend
+The Vite + React + TypeScript SPA under `src/` is the entire frontend. The
+landing surface at `/` is the home **health dashboard** (R-HOME): a read-only
+"is my data healthy?" glance that composes existing endpoints — a fleet overview
+(per-model fast counts, TTL, and the stale-index flag), the server-vitals strip
+from `/raw/info`, and recent audit activity — and runs no integrity scans on load.
+Its six navigable screens are live: Records, Models, the Integrity console,
+Migrations, the Audit trail, and the raw Explorer. Each builds itself from the
+backend contract — the `/_meta` descriptor and the integrity/migration/raw/audit
+endpoints — and renders explicit error and honest "unavailable" states on failure,
+never seed data. The Ruby backend
 (`lib/familia/admin/api.rb`) implements the full surface against the verified
 Familia 2.10.1 API: record CRUD, audited single-field reveal, collection
 mutation, indexed query, integrity health-check and repair (with live repair

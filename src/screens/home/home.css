@@ -1,0 +1,334 @@
+/*
+ * src/screens/home/home.css — co-located styles for the home health dashboard.
+ * Uses the shared design tokens (--admin-*, --otto-*) from src/styles.css and
+ * reuses .screen-title / .spinner / .error-state / .cell-mono. Dark-first,
+ * dense operator tool. Only home-specific layout lives here.
+ */
+
+.home-head {
+  margin-bottom: var(--otto-space-lg);
+}
+
+.home-sub {
+  margin: var(--otto-space-xs) 0 0;
+  max-width: 72ch;
+  color: var(--admin-text-muted);
+  font-size: var(--admin-font-size-sm);
+}
+
+/* Two columns: the fleet table leads, vitals + activity stack beside it. */
+.home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--otto-space-md);
+  align-items: start;
+}
+
+.home-aside {
+  display: grid;
+  gap: var(--otto-space-md);
+}
+
+@media (max-width: 900px) {
+  .home-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---- Panel shell ---- */
+.home-panel {
+  border: var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+  padding: var(--otto-space-md);
+}
+
+.home-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--otto-space-sm);
+  margin-bottom: var(--otto-space-sm);
+}
+
+.home-panel-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+}
+
+.home-refresh,
+.home-see-all,
+.home-check-link {
+  padding: 2px var(--otto-space-sm);
+  background: transparent;
+  color: var(--admin-text);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  font-size: var(--admin-font-size-sm);
+  cursor: pointer;
+  text-decoration: none;
+  transition: var(--otto-transition-fast);
+}
+
+.home-refresh:hover,
+.home-see-all:hover,
+.home-check-link:hover {
+  border-color: var(--admin-text-muted);
+}
+
+.home-see-all {
+  border: none;
+  color: var(--admin-accent);
+  padding: 0;
+}
+
+.home-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--otto-space-sm);
+  margin: var(--otto-space-md) 0;
+  color: var(--admin-text-muted);
+  font-size: var(--admin-font-size-sm);
+}
+
+.home-muted {
+  color: var(--admin-text-muted);
+}
+
+/* ---- Fleet table ---- */
+.home-table-wrap {
+  overflow-x: auto;
+}
+
+.home-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--admin-font-size-sm);
+}
+
+.home-table th,
+.home-table td {
+  padding: var(--otto-space-sm);
+  text-align: left;
+  border-bottom: var(--admin-border);
+  white-space: nowrap;
+}
+
+.home-table thead th {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+}
+
+.home-table tbody th {
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+.home-classname {
+  color: var(--admin-text-muted);
+  font-weight: 400;
+}
+
+.home-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.home-approx {
+  margin-left: var(--otto-space-xs);
+  font-size: 10px;
+  color: var(--admin-text-muted);
+}
+
+.home-flag {
+  padding: 1px var(--otto-space-xs);
+  border-radius: var(--otto-radius-sm);
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid currentColor;
+}
+
+.home-flag--stale {
+  color: var(--admin-status-caution);
+}
+
+.home-check-link {
+  color: var(--admin-text-muted);
+  white-space: nowrap;
+}
+
+.home-foot-note {
+  margin: var(--otto-space-sm) 0 0;
+  font-size: 11px;
+  color: var(--admin-text-muted);
+}
+
+/* ---- Vitals ---- */
+.home-vitals-body {
+  display: grid;
+  gap: var(--otto-space-md);
+}
+
+.home-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--otto-space-sm);
+  margin: 0;
+}
+
+.home-tile {
+  padding: var(--otto-space-sm);
+  border: var(--admin-border);
+  border-radius: var(--otto-radius-sm);
+  background: var(--admin-bg);
+}
+
+.home-tile dt {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+}
+
+.home-tile dd {
+  margin: 2px 0 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--otto-space-xs);
+}
+
+.home-tile-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--admin-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.home-tile-note {
+  font-size: 11px;
+  color: var(--admin-text-muted);
+}
+
+.home-eyebrow {
+  display: block;
+  margin-bottom: var(--otto-space-xs);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+}
+
+.home-keyspace-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--admin-font-size-sm);
+}
+
+.home-keyspace-table th,
+.home-keyspace-table td {
+  padding: 2px var(--otto-space-sm);
+  text-align: left;
+  border-bottom: var(--admin-border);
+  font-variant-numeric: tabular-nums;
+}
+
+.home-keyspace-table thead th {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--admin-text-muted);
+}
+
+.home-keyspace-empty {
+  margin: 0;
+  font-size: var(--admin-font-size-sm);
+}
+
+/* ---- Recent activity ---- */
+.home-activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--otto-space-xs);
+}
+
+.home-activity-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--otto-space-sm);
+  padding: var(--otto-space-xs) 0;
+  border-bottom: var(--admin-border);
+  font-size: var(--admin-font-size-sm);
+}
+
+.home-badge {
+  padding: 1px var(--otto-space-xs);
+  font-family: var(--admin-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: var(--otto-radius-sm);
+  border: 1px solid currentColor;
+  white-space: nowrap;
+  flex: none;
+}
+
+.home-badge--neutral {
+  color: var(--admin-status-neutral);
+}
+.home-badge--caution {
+  color: var(--admin-status-caution);
+}
+.home-badge--danger {
+  color: var(--admin-status-broken);
+}
+
+.home-activity-target {
+  color: var(--admin-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-activity-actor {
+  color: var(--admin-text-muted);
+}
+
+.home-activity-time {
+  margin-left: auto;
+  color: var(--admin-text-muted);
+  white-space: nowrap;
+}
+
+/* ---- Empty (honest) panels ---- */
+.home-empty {
+  margin: var(--otto-space-sm) 0 0;
+  padding: var(--otto-space-md);
+  border: var(--admin-border);
+  border-left: 3px solid var(--admin-status-neutral);
+  border-radius: var(--admin-radius);
+  background: var(--admin-bg);
+}
+
+.home-empty h4 {
+  margin: 0 0 var(--otto-space-xs);
+  font-size: 14px;
+  color: var(--admin-text);
+}
+
+.home-empty p {
+  margin: 0;
+  max-width: 60ch;
+  color: var(--admin-text-muted);
+  font-size: var(--admin-font-size-sm);
+}

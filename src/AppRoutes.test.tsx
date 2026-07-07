@@ -50,12 +50,13 @@ function renderShell(api: AdminApi = mockApi()) {
 }
 
 describe('the route table', () => {
-  it('covers exactly the five T7 screens', () => {
+  it('covers the T7 screens plus the audit trail (R-AUD-1)', () => {
     expect(SCREEN_ROUTES.map((s) => s.path)).toEqual([
       '/records',
       '/models',
       '/integrity',
       '/migrations',
+      '/audit',
       '/explorer',
     ])
   })
@@ -76,10 +77,12 @@ describe('navigation inside the authenticated shell', () => {
     }
   })
 
-  it('defaults to the overview route', async () => {
+  it('defaults to the overview route: the home health dashboard is the landing surface', async () => {
     renderShell()
     await screen.findByTestId('app-content')
 
+    // The R-HOME dashboard leads the '/' route; the reauth-demo affordance stays.
+    expect(screen.getByTestId('screen-home')).toBeInTheDocument()
     expect(screen.getByTestId('action-count')).toBeInTheDocument()
     expect(screen.getByTestId('nav-overview')).toHaveAttribute('aria-current', 'page')
   })

@@ -1,0 +1,54 @@
+{
+  "entries": [
+    {
+      "at": 1751558400,
+      "actor": "admin",
+      "action": "destroy",
+      "model": "customer",
+      "id": "cust_9f3a2b",
+      "snapshot": {
+        "email": "jed@example.com",
+        "name": "Jed Kilbourne",
+        "api_secret": "[CONCEALED]",
+        "created_at": 1735689600
+      }
+    },
+    {
+      "at": 1751558100,
+      "actor": "admin",
+      "action": "reveal",
+      "model": "customer",
+      "id": "cust_9f3a2b",
+      "field": "api_secret"
+    },
+    {
+      "at": 1751557900,
+      "actor": "admin",
+      "action": "repair",
+      "model": "customer",
+      "via": "stream"
+    },
+    {
+      "at": 1751557600,
+      "actor": "admin",
+      "action": "run_migrations",
+      "dry_run": false
+    },
+    {
+      "at": 1751557200,
+      "actor": "admin",
+      "action": "run_command",
+      "cmd": "GET",
+      "args": ["customer:cust_9f3a2b:object"]
+    },
+    {
+      "at": 1751556800,
+      "actor": "admin",
+      "action": "create",
+      "model": "session",
+      "id": "sess_1122ab"
+    }
+  ],
+  "count": 6,
+  "limit": 50
+}

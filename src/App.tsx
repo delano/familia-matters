@@ -29,6 +29,7 @@ import { ReauthOverlay } from './components/ReauthOverlay'
 import { SessionBar } from './components/SessionBar'
 import { routeHref, useHashRoute } from './router/hashRouter'
 import { SCREEN_ROUTES } from './screens'
+import { HomeScreen } from './screens/home/HomeScreen'
 
 interface AppProps {
   /** Location search string carrying return_to; defaults to the real URL. */
@@ -155,7 +156,7 @@ function AppShell(props: AppShellProps): React.JSX.Element {
             data-testid="nav-overview"
             aria-current={route === '/' ? 'page' : undefined}
           >
-            Overview
+            Home
           </a>
           {SCREEN_ROUTES.map((screen) => (
             <a
@@ -227,25 +228,26 @@ interface OverviewProps {
   onRunProtected(): void
 }
 
-/** The default route: session claims plus the protected-call demo the reauth tests drive. */
+/**
+ * The default route ('/'): the R-HOME health dashboard is the landing surface —
+ * the "is my data healthy?" glance the tool's identity calls for. Below it, a
+ * compact session-diagnostics block keeps the protected-call affordance the
+ * reauth flow drives (it exercises a real protected request to prove the
+ * session survives a mid-session 401 with the operator's location intact).
+ */
 function Overview(props: OverviewProps): React.JSX.Element {
   const { claims, actionCount, onRunProtected } = props
 
   return (
     <>
-      <section>
-        <h2>Session</h2>
-        <dl>
-          <dt>subject</dt>
-          <dd>{claims.sub}</dd>
-          <dt>role</dt>
-          <dd>{claims.role}</dd>
-          <dt>permissions</dt>
-          <dd>{claims.permissions.join(', ') || 'none'}</dd>
-        </dl>
-      </section>
+      <HomeScreen />
 
-      <section>
+      <section className="overview-diagnostics" data-testid="overview-diagnostics">
+        <h3>Session diagnostics</h3>
+        <p className="overview-diag-claims">
+          Signed in as <strong>{claims.sub}</strong> ({claims.role}) ·{' '}
+          {claims.permissions.join(', ') || 'no elevated permissions'}
+        </p>
         <p data-testid="action-count">Protected calls issued: {actionCount}</p>
         <button
           type="button"
