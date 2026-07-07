@@ -29,34 +29,40 @@ is "fsck for the object graph," and no Redis GUI or SQL admin offers it.
 ```
 host app (Rack 3)
 └── mount Familia::Admin at /admin
-      ├── Otto routes (plain text: auth=, response=json, csrf=, MCP/TOOL)
-      │     ├── JSON admin API (generic, introspection-driven)
-      │     └── /_mcp JSON-RPC 2.0 (agent-drivable)
+      ├── Otto routes (plain text: auth=, response=json, csrf=)
+      │     └── JSON admin API (generic, introspection-driven)
       ├── Descriptor    -> reflects Familia.members into a UI contract
       ├── API controller-> read / integrity / migration / raw actions
       └── Integrity + Migration services -> Familia's audit/repair + migration runner
 ```
 
 The frontend is not generated. The backend emits a self-describing descriptor
-(`GET /admin/api/_meta`) and the UI builds itself from it. The same routes are
-exposed as MCP tools, so an AI agent can run audits and repairs through the same
-contract a human uses.
+(`GET /admin/api/_meta`) and the UI builds itself from it. The admin surface is
+plain REST, so the same contract a human's browser drives is scriptable from
+`curl` or CI with a Bearer token. (An agent-drivable MCP projection over this
+contract was an early aspiration but was never built; the routes T5 removed
+never existed. Whether to build one is an open decision — see the functional
+spec, R-PLAT-3.)
 
 ## What is in this repo
 
 ### docs/
 
-Design docs and decision records: `docs/early-designs/` (the full UI design study
-and datasheets, the UX brief, and the production-hardening plan/ticket template),
-`docs/features/` (the integrity console spec, the auth-UI spec, and feature
-issues), and `docs/adr/` (architecture decision records).
+**Start with [`docs/familia-admin-functional-spec.md`](docs/familia-admin-functional-spec.md)**
+— the anchor document: the problem restated, the clarified product definition,
+the full requirement inventory (`R-…` IDs new issues should cite), and the
+roadmap. The rest are design docs and decision records: `docs/early-designs/`
+(the full UI design study and datasheets, the UX brief, and the
+production-hardening plan/ticket template), `docs/features/` (the integrity
+console spec, the auth-UI spec, and feature issues), and `docs/adr/`
+(architecture decision records).
 
 ### resources/00-assets/
 
 | Path | Role |
 |---|---|
 | `design-tokens.css` | the design system (Otto tokens + admin density + dark theme) |
-| `routes.txt` | Otto route file: the full endpoint map (HTTP + MCP) |
+| `routes.txt` | Otto route file: the full HTTP endpoint map |
 | `lib/familia/admin/descriptor.rb` | reflects models into the `/_meta` descriptor (DB-free) |
 | `lib/familia/admin/api.rb` | the controller wiring routes to Familia |
 | `fixtures/` | worked models, sample payloads, and the contract shapes (the shared truth both ends honor; back the contract tests) |

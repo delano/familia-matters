@@ -41,7 +41,7 @@ scaffolding, no generated code. Dense, keyboard-first, dark-first operator tool.
 
 ### Contract layer (`resources/00-assets/`) — the source of truth both ends honor
 
-- `routes.txt`: the Otto route map (HTTP + MCP), grouped
+- `routes.txt`: the Otto route map (HTTP), grouped
   Auth/Discovery/Records/Collections/Query/Integrity/Migrations/Audit/Raw/Streams.
   Encodes auth tiers (`role:admin` vs `permission:{reveal_secrets,repair,run_migrations,raw_command}`)
   and `csrf=exempt` on mutations. T6 added `GET /admin/api/audit` (the
